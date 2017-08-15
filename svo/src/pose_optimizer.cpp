@@ -45,12 +45,15 @@ void optimizeGaussNewton(
 
   // compute the scale of the error for robust estimation
   std::vector<float> errors; errors.reserve(frame->fts_.size());
+  // fts_ 特征点
   for(auto it=frame->fts_.begin(); it!=frame->fts_.end(); ++it)
   {
     if((*it)->point == NULL)
       continue;
-    Vector2d e = vk::project2d((*it)->f)
-               - vk::project2d(frame->T_f_w_ * (*it)->point->pos_);
+	
+	// it->f : 特征的位置
+	// (*it)->point->pos_ : 三维点位置
+    Vector2d e = vk::project2d((*it)->f) - vk::project2d(frame->T_f_w_ * (*it)->point->pos_);
     e *= 1.0 / (1<<(*it)->level);
     errors.push_back(e.norm());
   }

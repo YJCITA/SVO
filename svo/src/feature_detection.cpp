@@ -94,6 +94,7 @@ void FastDetector::detect(
     for(auto it=nm_corners.begin(), ite=nm_corners.end(); it!=ite; ++it)
     {
       fast::fast_xy& xy = fast_corners.at(*it);
+	   // 判断特征点在哪个grid里
       const int k = static_cast<int>((xy.y*scale)/cell_size_)*grid_n_cols_
                   + static_cast<int>((xy.x*scale)/cell_size_);
       if(grid_occupancy_[k])

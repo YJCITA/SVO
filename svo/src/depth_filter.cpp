@@ -205,7 +205,7 @@ void DepthFilter::updateSeeds(FramePtr frame)
   const double focal_length = frame->cam_->errorMultiplier2();
   double px_noise = 1.0;
   double px_error_angle = atan(px_noise/(2.0*focal_length))*2.0; // law of chord (sehnensatz)
-
+  // 更新当前KF中的种子点
   while( it!=seeds_.end())
   {
     // set this value true when seeds updating should be interrupted
@@ -244,6 +244,7 @@ void DepthFilter::updateSeeds(FramePtr frame)
     }
 
     // compute tau
+    // tau: 测量的不准确度
     double tau = computeTau(T_ref_cur, it->ftr->f, z, px_error_angle);
     double tau_inverse = 0.5 * (1.0/max(0.0000001, z-tau) - 1.0/(z+tau));
 
@@ -306,13 +307,16 @@ void DepthFilter::getSeedsCopy(const FramePtr& frame, std::list<Seed>& seeds)
   }
 }
 
+// 论文<Video-based, real-time multi-view stereo>的supplementary material里有详细推导，下载地址见该论文
 void DepthFilter::updateSeed(const float x, const float tau2, Seed* seed)
 {
   float norm_scale = sqrt(seed->sigma2 + tau2);
   if(std::isnan(norm_scale))
     return;
   boost::math::normal_distribution<float> nd(seed->mu, norm_scale);
+  //  更新后验，tau2是观测的方差，sigma2是先验的方差
   float s2 = 1./(1./seed->sigma2 + 1./tau2);
+  //seed->mu 是先验深度的均值; x是观测的深度值, 用三角法计算
   float m = s2*(seed->mu/seed->sigma2 + x/tau2);
   float C1 = seed->a/(seed->a+seed->b) * boost::math::pdf(nd, x);
   float C2 = seed->b/(seed->a+seed->b) * 1./seed->z_range;

@@ -66,27 +66,27 @@ void FrameHandlerMono::addImage(const cv::Mat& img, const double timestamp)
 
   // create new frame
   SVO_START_TIMER("pyramid_creation");
-  // test
-  cv::imshow("test", img);
   new_frame_.reset(new Frame(cam_, img.clone(), timestamp));
   SVO_STOP_TIMER("pyramid_creation");
 
   // process frame
   UpdateResult res = RESULT_FAILURE;
-  if(stage_ == STAGE_DEFAULT_FRAME)
+  if(stage_ == STAGE_DEFAULT_FRAME){
+	// 初始化后的主函数（main）
     res = processFrame();
-  else if(stage_ == STAGE_SECOND_FRAME)
+  }else if(stage_ == STAGE_SECOND_FRAME){
     res = processSecondFrame();
-  else if(stage_ == STAGE_FIRST_FRAME)
+  }else if(stage_ == STAGE_FIRST_FRAME){
     res = processFirstFrame();
-  else if(stage_ == STAGE_RELOCALIZING)
-    res = relocalizeFrame(SE3(Matrix3d::Identity(), Vector3d::Zero()),
-                          map_.getClosestKeyframe(last_frame_));
+  }else if(stage_ == STAGE_RELOCALIZING){
+    res = relocalizeFrame(SE3(Matrix3d::Identity(), Vector3d::Zero()), map_.getClosestKeyframe(last_frame_));
+  }
 
   // set last frame
   last_frame_ = new_frame_;
   new_frame_.reset();
   // finish processing
+  // 函数参数：const size_t update_id,　const UpdateResult dropout, const size_t num_observations
   finishFrameProcessingCommon(last_frame_->id_, res, last_frame_->nObs());
 }
 
@@ -104,6 +104,7 @@ FrameHandlerMono::UpdateResult FrameHandlerMono::processFirstFrame()
 
 FrameHandlerBase::UpdateResult FrameHandlerMono::processSecondFrame()
 {
+  //addSecondFrame() 函数完成了中用光流法跟踪第一帧的特征，计算H 矩阵--> 相机位姿，计算特征点深度
   initialization::InitResult res = klt_homography_init_.addSecondFrame(new_frame_);
   if(res == initialization::FAILURE)
     return RESULT_FAILURE;
@@ -128,11 +129,14 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processSecondFrame()
   return RESULT_IS_KEYFRAME;
 }
 
+// 主函数
+// RESULT_FAILURE:需要重定位（有两个条件会触发）
 FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
 {
   // Set initial pose TODO use prior
   new_frame_->T_f_w_ = last_frame_->T_f_w_;
 
+  // 1. 稀疏直接法：
   // sparse image align
   SVO_START_TIMER("sparse_img_align");
   SparseImgAlign img_align(Config::kltMaxLevel(), Config::kltMinLevel(),
@@ -142,6 +146,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   SVO_LOG(img_align_n_tracked);
   SVO_DEBUG_STREAM("Img Align:\t Tracked = " << img_align_n_tracked);
 
+  // 2.  重投影
   // map reprojection & feature alignment
   SVO_START_TIMER("reproject");
   reprojector_.reprojectMap(new_frame_, overlap_kfs_);
@@ -150,15 +155,22 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   const size_t repr_n_mps = reprojector_.n_trials_;
   SVO_LOG2(repr_n_mps, repr_n_new_references);
   SVO_DEBUG_STREAM("Reprojection:\t nPoints = "<<repr_n_mps<<"\t \t nMatches = "<<repr_n_new_references);
-  if(repr_n_new_references < Config::qualityMinFts())
-  {
+// 1).直接法跟踪上一帧以后，用于跟踪的像素点数(作者用的特征点数，其实就是像素点数)太少。 
+// comment: 这一步失败一部分是由于位姿变化大，上一帧的点投影不上去。另一部分原因是上一帧上的特征点数目本来就少，
+// 再跟丢一点那就更少了。上一帧的特征数目是由重投影以及位姿优化决定的。按理来说，重投影的都是关键帧上的点，
+// 这样重投影的时候特征点数目应该足够多呀。可是事实是投影的地图点数确实比较多，但貌似都集中到几个cell里了。
+  if(repr_n_new_references < Config::qualityMinFts()){
     SVO_WARN_STREAM_THROTTLE(1.0, "Not enough matched features.");
     new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
     tracking_quality_ = TRACKING_INSUFFICIENT;
     return RESULT_FAILURE;
   }
 
+  // 3.优化
   // pose optimization
+//   会根据投影误差丢掉一些误差大的特征点，最后留下来进行位姿优化的这些特征点被变量sfba_n_edges_final记录下来，
+//   利用它来判断跟踪质量好不好 setTrackingQuality(sfba_n_edges_final). 跟踪不好的判断依据是，
+//   用于位姿优化的点数sfba_n_edges_final小于一个阈值，或者比上一帧中用于优化的点减少了很多。
   SVO_START_TIMER("pose_optimizer");
   size_t sfba_n_edges_final;
   double sfba_thresh, sfba_error_init, sfba_error_final;
@@ -169,6 +181,11 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   SVO_LOG4(sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
   SVO_DEBUG_STREAM("PoseOptimizer:\t ErrInit = "<<sfba_error_init<<"px\t thresh = "<<sfba_thresh);
   SVO_DEBUG_STREAM("PoseOptimizer:\t ErrFin. = "<<sfba_error_final<<"px\t nObsFin. = "<<sfba_n_edges_final);
+// 2).重投影以后，利用多关键帧和当前帧的匹配点进行相机位姿优化的过程中，不断丢弃重投影误差大的点。
+// 优化完以后，如果inlier数目较少，跟踪失败，开启重定位。如果这次优化过程中的点比上一帧少很多，
+// 那也认为跟踪失败，开启重定位。 
+// comment：调试程序的过程中发现，很多时候，虽然用于优化的点比上一帧少，但是优化过程中丢弃的outlier也很小，
+// 说明跟踪质量应该是好的，这样不应该开启重定位呀。
   if(sfba_n_edges_final < 20)
     return RESULT_FAILURE;
 

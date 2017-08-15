@@ -146,6 +146,13 @@ bool align1D(
   return converged;
 }
 
+// 迭代计算特征点在新图像中的位置，光流法
+//(u',v') =  argmin_uv (||I(u',v') - Affine* I(u,v) ||)^2   from the svo paper
+// r = I(u',v') - Affine*I(u,v)
+// 用迭代法求这个最小二乘问题, delta为迭代增量:
+// J^T*J*delta = -J*r    -->    H*delta = -J*r
+// J 是各个像素点的雅克比矩阵Ji 累计起来的一个矩阵, J = [ J1;J2;...Ji...Jn], n = patch_size
+// Ji = [ dr/du' , dr/dv'] = [ dI(u',v')/du' , dI(u',v')/dv']  就是I'在x,y两个方向的导数
 bool align2D(
     const cv::Mat& cur_img,
     uint8_t* ref_patch_with_border,
@@ -165,11 +172,13 @@ bool align2D(
   bool converged=false;
 
   // compute derivative of template and prepare inverse compositional
+  // 定义一个16字节对齐的变量
   float __attribute__((__aligned__(16))) ref_patch_dx[patch_area_];
   float __attribute__((__aligned__(16))) ref_patch_dy[patch_area_];
   Matrix3f H; H.setZero();
 
   // compute gradient and hessian
+    // Ji = [dx,dy,1]    // 最后的1 是对残差进行求导，dr/r , 他这里还对patch 的残差进行了估计.
   const int ref_step = patch_size_+2;
   float* it_dx = ref_patch_dx;
   float* it_dy = ref_patch_dy;
@@ -191,6 +200,7 @@ bool align2D(
   float mean_diff = 0;
 
   // Compute pixel location in new image:
+  // 特征块中心像素点在新图像中的位置
   float u = cur_px_estimate.x();
   float v = cur_px_estimate.y();
 
@@ -228,7 +238,9 @@ bool align2D(
       uint8_t* it = (uint8_t*) cur_img.data + (v_r+y-halfpatch_size_)*cur_step + u_r-halfpatch_size_;
       for(int x=0; x<patch_size_; ++x, ++it, ++it_ref, ++it_ref_dx, ++it_ref_dy)
       {
+		  // 在cur中的像素值，双线性插值
         float search_pixel = wTL*it[0] + wTR*it[1] + wBL*it[cur_step] + wBR*it[cur_step+1];
+		// cur 和ref 中像素差值。加上mean_diff  
         float res = search_pixel - *it_ref + mean_diff;
         Jres[0] -= res*(*it_ref_dx);
         Jres[1] -= res*(*it_ref_dy);

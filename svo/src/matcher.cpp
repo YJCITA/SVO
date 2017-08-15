@@ -42,14 +42,20 @@ void getWarpMatrixAffine(
 {
   // Compute affine warp matrix A_ref_cur
   const int halfpatch_size = 5;
+  // 得到pixel f 在ref frame 中的3d 坐标
   const Vector3d xyz_ref(f_ref*depth_ref);
+  // 将像素f 在横轴方向扩展几个像素px_ref.u + halfpatch_size，并得到该点的3d坐标
   Vector3d xyz_du_ref(cam_ref.cam2world(px_ref + Vector2d(halfpatch_size,0)*(1<<level_ref)));
+  // 将像素f 在 纵轴方向扩展几个像素px_ref.v + halfpatch_size，并得到该点的3d坐标
   Vector3d xyz_dv_ref(cam_ref.cam2world(px_ref + Vector2d(0,halfpatch_size)*(1<<level_ref)));
+  // 将这两个3d坐标归一化到pixel f 同一深度
   xyz_du_ref *= xyz_ref[2]/xyz_du_ref[2];
   xyz_dv_ref *= xyz_ref[2]/xyz_dv_ref[2];
+  // 将这个点转化到cur frame中，并投影到像素坐标
   const Vector2d px_cur(cam_cur.world2cam(T_cur_ref*(xyz_ref)));
   const Vector2d px_du(cam_cur.world2cam(T_cur_ref*(xyz_du_ref)));
   const Vector2d px_dv(cam_cur.world2cam(T_cur_ref*(xyz_dv_ref)));
+  // cur frame和ref frame 相比，横坐标拉伸比例。
   A_cur_ref.col(0) = (px_du - px_cur)/halfpatch_size;
   A_cur_ref.col(1) = (px_dv - px_cur)/halfpatch_size;
 }
@@ -106,6 +112,10 @@ void warpAffine(
 
 } // namespace warp
 
+// 利用投影方程来计算的
+// f_ref: 特征点f 在ref 中的归一化平面
+// f_cur: 特征点f 在cur 中的归一化平面
+// d2*f_c = R_cr* d1 * f_r + t_cr
 bool depthFromTriangulation(
     const SE3& T_search_ref,
     const Vector3d& f_ref,
@@ -132,10 +142,9 @@ void Matcher::createPatchFromPatchWithBorder()
   }
 }
 
-bool Matcher::findMatchDirect(
-    const Point& pt,
-    const Frame& cur_frame,
-    Vector2d& px_cur)
+ // 找到特征点所对应的帧ref frame, 保存在3d点的特征中ref_ftr_->frame
+  // 因为存在多个ref frame看到这个特征点，所以选取和当前帧夹角最小的帧
+bool Matcher::findMatchDirect( const Point& pt, const Frame& cur_frame, Vector2d& px_cur)
 {
   if(!pt.getCloseViewObs(cur_frame.pos(), ref_ftr_))
     return false;
@@ -203,8 +212,15 @@ bool Matcher::findEpipolarMatchDirect(
   reject_ = false;
   if(ref_ftr.type == Feature::EDGELET && options_.epi_search_edgelet_filtering)
   {
+	  // grad : image patch 的主特征方向
+	// 主特征方向计算方式:
+	// Run a Histogram of Oriented Gradients over patches of the image - 
+	//the peak in each of those histograms will give you the dominant direction of that patch 
     const Vector2d grad_cur = (A_cur_ref_ * ref_ftr.grad).normalized();
+	// 特征主梯度方向和极线方向的夹角
     const double cosangle = fabs(grad_cur.dot(epi_dir_.normalized()));
+	// 夹角不能太大
+    //  lsd slam 中有详细说明,当极线方向和梯度方向平行时，极线搜索的误差才小
     if(cosangle < options_.epi_search_edgelet_max_angle) {
       reject_ = true;
       return false;
@@ -216,6 +232,7 @@ bool Matcher::findEpipolarMatchDirect(
   // Find length of search range on epipolar line
   Vector2d px_A(cur_frame.cam_->world2cam(A));
   Vector2d px_B(cur_frame.cam_->world2cam(B));
+  // 极线搜索长度
   epi_length_ = (px_A-px_B).norm() / (1<<search_level_);
 
   // Warp reference patch at ref_level
@@ -223,6 +240,7 @@ bool Matcher::findEpipolarMatchDirect(
                    ref_ftr.level, search_level_, halfpatch_size_+1, patch_with_border_);
   createPatchFromPatchWithBorder();
 
+  // // 极线长度小于两个像素
   if(epi_length_ < 2.0)
   {
     px_cur_ = (px_A+px_B)/2.0;
@@ -245,6 +263,10 @@ bool Matcher::findEpipolarMatchDirect(
     return false;
   }
 
+  // 如果极线长度大于两个像素以上:
+  // step1. 在极线上采样若干个点
+  // step2. 在这若干个点中选取匹配度最高的点
+  // step3. 在分数最高点附近使用梯度下降得到次像素精度的定位
   size_t n_steps = epi_length_/0.7; // one step per pixel
   Vector2d step = epi_dir_/n_steps;
 
@@ -280,8 +302,8 @@ bool Matcher::findEpipolarMatchDirect(
 
     // TODO interpolation would probably be a good idea
     uint8_t* cur_patch_ptr = cur_frame.img_pyr_[search_level_].data
-                             + (pxi[1]-halfpatch_size_)*cur_frame.img_pyr_[search_level_].cols
-                             + (pxi[0]-halfpatch_size_);
+        + (pxi[1]-halfpatch_size_)*cur_frame.img_pyr_[search_level_].cols + (pxi[0]-halfpatch_size_);
+	//匹配分数计算方式:  Zero Mean Sum of Squared Differences Cost  (google it )
     int zmssd = patch_score.computeScore(cur_patch_ptr, cur_frame.img_pyr_[search_level_].cols);
 
     if(zmssd < zmssd_best) {

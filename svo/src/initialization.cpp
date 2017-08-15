@@ -53,14 +53,12 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
   if(disparity < Config::initMinDisparity())
     return NO_KEYFRAME;
 
-  computeHomography(
-      f_ref_, f_cur_,
-      frame_ref_->cam_->errorMultiplier2(), Config::poseOptimThresh(),
-      inliers_, xyz_in_cur_, T_cur_from_ref_);
+  // computeHomography 顺带计算出来了特征点的深度
+  computeHomography( f_ref_, f_cur_, frame_ref_->cam_->errorMultiplier2(), 
+					 Config::poseOptimThresh(), inliers_, xyz_in_cur_, T_cur_from_ref_);
   SVO_INFO_STREAM("Init: Homography RANSAC "<<inliers_.size()<<" inliers.");
 
-  if(inliers_.size() < Config::initMinInliers())
-  {
+  if(inliers_.size() < Config::initMinInliers()){
     SVO_WARN_STREAM("Init WARNING: "<<Config::initMinInliers()<<" inliers minimum required.");
     return FAILURE;
   }
@@ -70,8 +68,10 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
   for(size_t i=0; i<xyz_in_cur_.size(); ++i)
     depth_vec.push_back((xyz_in_cur_[i]).z());
   double scene_depth_median = vk::getMedian(depth_vec);
+  // 因为computeHomography 算出来的平移是带尺度的，要归一化到统一的尺度下
   double scale = Config::mapScale()/scene_depth_median;
   frame_cur->T_f_w_ = T_cur_from_ref_ * frame_ref_->T_f_w_;
+  // 加了一个尺度因子
   frame_cur->T_f_w_.translation() =
       -frame_cur->T_f_w_.rotation_matrix()*(frame_ref_->pos() + scale*(frame_cur->pos() - frame_ref_->pos()));
 

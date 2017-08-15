@@ -105,10 +105,8 @@ bool FrameHandlerBase::startFrameProcessingCommon(const double timestamp)
   return true;
 }
 
-int FrameHandlerBase::finishFrameProcessingCommon(
-    const size_t update_id,
-    const UpdateResult dropout,
-    const size_t num_observations)
+int FrameHandlerBase::finishFrameProcessingCommon( const size_t update_id,
+						const UpdateResult dropout, const size_t num_observations)
 {
   SVO_DEBUG_STREAM("Frame: "<<update_id<<"\t fps-avg = "<< 1.0/acc_frame_timings_.getMean()<<"\t nObs = "<<acc_num_obs_.getMean());
   SVO_LOG(dropout);
@@ -129,14 +127,13 @@ int FrameHandlerBase::finishFrameProcessingCommon(
   }
 #endif
 
-  if(dropout == RESULT_FAILURE &&
-      (stage_ == STAGE_DEFAULT_FRAME || stage_ == STAGE_RELOCALIZING ))
-  {
+  if(dropout == RESULT_FAILURE && (stage_ == STAGE_DEFAULT_FRAME || stage_ == STAGE_RELOCALIZING )){
     stage_ = STAGE_RELOCALIZING;
     tracking_quality_ = TRACKING_INSUFFICIENT;
-  }
-  else if (dropout == RESULT_FAILURE)
+  }else if (dropout == RESULT_FAILURE){
     resetAll();
+  }
+  
   if(set_reset_)
     resetAll();
 

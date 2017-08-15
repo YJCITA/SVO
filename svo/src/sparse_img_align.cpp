@@ -26,6 +26,7 @@
 
 namespace svo {
 
+// sparseImgAlign 继承nlls_slover.h的算法模块类
 SparseImgAlign::SparseImgAlign(
     int max_level, int min_level, int n_iter,
     Method method, bool display, bool verbose) :
@@ -58,8 +59,7 @@ size_t SparseImgAlign::run(FramePtr ref_frame, FramePtr cur_frame)
 
   SE3 T_cur_from_ref(cur_frame_->T_f_w_ * ref_frame_->T_f_w_.inverse());
 
-  for(level_=max_level_; level_>=min_level_; --level_)
-  {
+  for(level_=max_level_; level_>=min_level_; --level_){
     mu_ = 0.1;
     jacobian_cache_.setZero();
     have_ref_patch_cache_ = false;
@@ -68,9 +68,8 @@ size_t SparseImgAlign::run(FramePtr ref_frame, FramePtr cur_frame)
     optimize(T_cur_from_ref);
   }
   cur_frame_->T_f_w_ = T_cur_from_ref * ref_frame_->T_f_w_;
-
-
-
+  // 会统计用于直接法计算的残差的特征点个数 n_meas_/patch_area_， 
+  // n_meas_表示前一帧所有特征点块(feature patch)像素投影后在cur_frame中的像素个数
   return n_meas_/patch_area_;
 }
 

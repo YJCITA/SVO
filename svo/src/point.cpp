@@ -94,16 +94,26 @@ void Point::initNormal()
   normal_set_ = true;
 }
 
+
+// 要注意，一个地图点可能连着多个特征点，比如P2到底选择ref_frame i中p2i
+// 还是ref_frame j中的p2j作为和cur_frame中匹配的特征点呢？
+// 地图中的point点通过变量obs_记录了它和哪些特征是联系起来的，
+// 这里它知道自己连着p2i,p2j，地图point点会通过一些筛选机制来选择是用p2i还是用p2j，
+// 具体实现在getCloseViewObs函数中
 bool Point::getCloseViewObs(const Vector3d& framepos, Feature*& ftr) const
 {
   // TODO: get frame with same point of view AND same pyramid level!
+	// obs_dir: 从当前帧摄像机光心指向3d点的向量
   Vector3d obs_dir(framepos - pos_); obs_dir.normalize();
   auto min_it=obs_.begin();
   double min_cos_angle = 0;
   for(auto it=obs_.begin(), ite=obs_.end(); it!=ite; ++it)
   {
+	  //计算其他观测到这个3d点的KF 和这个3d的方向
     Vector3d dir((*it)->frame->pos() - pos_); dir.normalize();
+	// 计算这两个方向的夹角
     double cos_angle = obs_dir.dot(dir);
+	// 选择夹角最小的一个
     if(cos_angle > min_cos_angle)
     {
       min_cos_angle = cos_angle;
@@ -123,15 +133,14 @@ void Point::optimize(const size_t n_iter)
   Matrix3d A;
   Vector3d b;
 
-  for(size_t i=0; i<n_iter; i++)
-  {
+  for(size_t i=0; i<n_iter; i++){
     A.setZero();
     b.setZero();
     double new_chi2 = 0.0;
 
     // compute residuals
-    for(auto it=obs_.begin(); it!=obs_.end(); ++it)
-    {
+    for(auto it=obs_.begin(); it!=obs_.end(); ++it){
+		// 图像位置对point 的xyz求导，2x3 matrix
       Matrix23d J;
       const Vector3d p_in_f((*it)->frame->T_f_w_ * pos_);
       Point::jacobian_xyz2uv(p_in_f, (*it)->frame->T_f_w_.rotation_matrix(), J);
