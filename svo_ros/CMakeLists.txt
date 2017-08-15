@@ -1,7 +1,16 @@
 SET(PROJECT_NAME svo_ros)
 PROJECT(${PROJECT_NAME})
 CMAKE_MINIMUM_REQUIRED (VERSION 2.8.3)
-SET(CMAKE_BUILD_TYPE Release) # Release, RelWithDebInfo
+# SET(CMAKE_BUILD_TYPE Release) # Release, RelWithDebInfo
+OPTION(COMPILE_DEBUG_SWITCH_ROS "switch for copmile debug OR release" OFF)
+IF (COMPILE_DEBUG_SWITCH_ROS)
+    MESSAGE(STATUS "copmile debug")
+    SET(CMAKE_BUILD_TYPE "Debug")
+    SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g -ggdb")
+ELSE()
+    MESSAGE(STATUS "copmile release")
+ENDIF()
+
 SET(CMAKE_VERBOSE_MAKEFILE OFF)
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/CMakeModules/")
 
@@ -37,6 +46,7 @@ FIND_PACKAGE(catkin REQUIRED COMPONENTS
 )
 
 # Add plain cmake packages 
+set(cv_bridge_DIR /home/yj/bak/packet/opencv/vision_opencv/cv_bridge/install/share/cv_bridge/cmake)
 FIND_PACKAGE(OpenCV REQUIRED)
 FIND_PACKAGE(Eigen REQUIRED)
 FIND_PACKAGE(Sophus REQUIRED)

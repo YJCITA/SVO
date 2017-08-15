@@ -4,16 +4,28 @@
 SET(TRACE TRUE)
 SET(HAVE_G2O FALSE) 
 SET(USE_ROS TRUE) # Set FALSE if you want to build this package without Catkin
-SET(DEBUG_OUTPUT FALSE) # Only relevant if build without ROS
+SET(DEBUG_OUTPUT TRUE) # Only relevant if build without ROS
 
 ################################################################################
-
 SET(PROJECT_NAME svo)
 PROJECT(${PROJECT_NAME})
 CMAKE_MINIMUM_REQUIRED (VERSION 2.8.3)
-SET(CMAKE_BUILD_TYPE Release) # Release, RelWithDebInfo
+# SET(CMAKE_BUILD_TYPE Release) # Release, RelWithDebInfo
+OPTION(COMPILE_DEBUG_SWITCH_SVO "switch for copmile debug OR release" OFF)
+IF (COMPILE_DEBUG_SWITCH_SVO)
+    MESSAGE(STATUS "copmile debug")
+    SET(CMAKE_BUILD_TYPE "Debug")
+    SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g -ggdb")
+ELSE()
+    MESSAGE(STATUS "copmile release")
+ENDIF()
+
 SET(CMAKE_VERBOSE_MAKEFILE OFF)
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/CMakeModules/")
+
+SET(PROJECT_ROOT_PATH "${CMAKE_SOURCE_DIR}")
+SET(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}/bin")
+SET(LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/lib/")
 
 # Set definitions
 IF(TRACE)
@@ -45,6 +57,8 @@ ENDIF()
 SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -fsee -fomit-frame-pointer -fno-signed-zeros -fno-math-errno -funroll-loops")
 
 # Add plain cmake packages 
+set(cv_bridge_DIR /home/yj/bak/packet/opencv/vision_opencv/cv_bridge/install/share/cv_bridge/cmake)
+
 FIND_PACKAGE(OpenCV REQUIRED)
 FIND_PACKAGE(Eigen REQUIRED)
 FIND_PACKAGE(Sophus REQUIRED)
@@ -52,6 +66,7 @@ FIND_PACKAGE(fast REQUIRED)
 FIND_PACKAGE(Boost REQUIRED COMPONENTS thread system)
 
 IF(USE_ROS)
+MESSAGE(STATUS "ros")
   FIND_PACKAGE(catkin REQUIRED COMPONENTS roscpp roslib cmake_modules vikit_common vikit_ros)
   catkin_package(
       DEPENDS Eigen OpenCV Sophus Boost fast
@@ -60,6 +75,7 @@ IF(USE_ROS)
       LIBRARIES svo
   )
 ELSE()
+	MESSAGE(STATUS "no ros")
   FIND_PACKAGE(vikit_common REQUIRED)
   SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
   SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
@@ -123,7 +139,7 @@ IF(HAVE_G2O)
 ENDIF(HAVE_G2O)
 
 # Create svo library
-ADD_LIBRARY(svo SHARED ${SOURCEFILES})
+ADD_LIBRARY(svo STATIC ${SOURCEFILES})
 TARGET_LINK_LIBRARIES(svo ${LINK_LIBS})
 
 ################################################################################
