@@ -27,9 +27,8 @@
 namespace svo {
 
 // sparseImgAlign 继承nlls_slover.h的算法模块类
-SparseImgAlign::SparseImgAlign(
-    int max_level, int min_level, int n_iter,
-    Method method, bool display, bool verbose) :
+SparseImgAlign::SparseImgAlign( int max_level, int min_level, int n_iter,
+								Method method, bool display, bool verbose) :
         display_(display),
         max_level_(max_level),
         min_level_(min_level)
@@ -45,8 +44,7 @@ size_t SparseImgAlign::run(FramePtr ref_frame, FramePtr cur_frame)
 {
   reset();
 
-  if(ref_frame->fts_.empty())
-  {
+  if(ref_frame->fts_.empty()){
     SVO_WARN_STREAM("SparseImgAlign: no features to track!");
     return 0;
   }
@@ -58,13 +56,14 @@ size_t SparseImgAlign::run(FramePtr ref_frame, FramePtr cur_frame)
   visible_fts_.resize(ref_patch_cache_.rows, false); // TODO: should it be reset at each level?
 
   SE3 T_cur_from_ref(cur_frame_->T_f_w_ * ref_frame_->T_f_w_.inverse());
-
   for(level_=max_level_; level_>=min_level_; --level_){
     mu_ = 0.1;
     jacobian_cache_.setZero();
     have_ref_patch_cache_ = false;
     if(verbose_)
       printf("\nPYRAMID LEVEL %i\n---------------\n", level_);
+	// 调用vikit中的　nlls_solver_impl.hpp
+	// 默认调用的是GaussNewton，其中会调用computeResiduals，里面会包含多层金字塔level_
     optimize(T_cur_from_ref);
   }
   cur_frame_->T_f_w_ = T_cur_from_ref * ref_frame_->T_f_w_;
@@ -80,6 +79,7 @@ Matrix<double, 6, 6> SparseImgAlign::getFisherInformation()
   return I;
 }
 
+// 计算雅克比矩阵
 void SparseImgAlign::precomputeReferencePatches()
 {
   const int border = patch_halfsize_+1;
@@ -91,8 +91,7 @@ void SparseImgAlign::precomputeReferencePatches()
   size_t feature_counter = 0;
   std::vector<bool>::iterator visiblity_it = visible_fts_.begin();
   for(auto it=ref_frame_->fts_.begin(), ite=ref_frame_->fts_.end();
-      it!=ite; ++it, ++feature_counter, ++visiblity_it)
-  {
+		it!=ite; ++it, ++feature_counter, ++visiblity_it){
     // check if reference with patch size is within image
     const float u_ref = (*it)->px[0]*scale;
     const float v_ref = (*it)->px[1]*scale;
@@ -119,11 +118,9 @@ void SparseImgAlign::precomputeReferencePatches()
     const float w_ref_br = subpix_u_ref * subpix_v_ref;
     size_t pixel_counter = 0;
     float* cache_ptr = reinterpret_cast<float*>(ref_patch_cache_.data) + patch_area_*feature_counter;
-    for(int y=0; y<patch_size_; ++y)
-    {
+    for(int y=0; y<patch_size_; ++y){
       uint8_t* ref_img_ptr = (uint8_t*) ref_img.data + (v_ref_i+y-patch_halfsize_)*stride + (u_ref_i-patch_halfsize_);
-      for(int x=0; x<patch_size_; ++x, ++ref_img_ptr, ++cache_ptr, ++pixel_counter)
-      {
+      for(int x=0; x<patch_size_; ++x, ++ref_img_ptr, ++cache_ptr, ++pixel_counter){
         // precompute interpolated reference patch color
         *cache_ptr = w_ref_tl*ref_img_ptr[0] + w_ref_tr*ref_img_ptr[1] + w_ref_bl*ref_img_ptr[stride] + w_ref_br*ref_img_ptr[stride+1];
 
@@ -143,10 +140,8 @@ void SparseImgAlign::precomputeReferencePatches()
   have_ref_patch_cache_ = true;
 }
 
-double SparseImgAlign::computeResiduals(
-    const SE3& T_cur_from_ref,
-    bool linearize_system,
-    bool compute_weight_scale)
+// 计算平均的残差
+double SparseImgAlign::computeResiduals( const SE3& T_cur_from_ref, bool linearize_system, bool compute_weight_scale)
 {
   // Warp the (cur)rent image such that it aligns with the (ref)erence image
   const cv::Mat& cur_img = cur_frame_->img_pyr_.at(level_);
@@ -161,6 +156,7 @@ double SparseImgAlign::computeResiduals(
   std::vector<float> errors;
   if(compute_weight_scale)
     errors.reserve(visible_fts_.size());
+  
   const int stride = cur_img.cols;
   const int border = patch_halfsize_+1;
   const float scale = 1.0f/(1<<level_);
@@ -198,12 +194,9 @@ double SparseImgAlign::computeResiduals(
     const float w_cur_br = subpix_u_cur * subpix_v_cur;
     float* ref_patch_cache_ptr = reinterpret_cast<float*>(ref_patch_cache_.data) + patch_area_*feature_counter;
     size_t pixel_counter = 0; // is used to compute the index of the cached jacobian
-    for(int y=0; y<patch_size_; ++y)
-    {
+    for(int y=0; y<patch_size_; ++y){
       uint8_t* cur_img_ptr = (uint8_t*) cur_img.data + (v_cur_i+y-patch_halfsize_)*stride + (u_cur_i-patch_halfsize_);
-
-      for(int x=0; x<patch_size_; ++x, ++pixel_counter, ++cur_img_ptr, ++ref_patch_cache_ptr)
-      {
+      for(int x=0; x<patch_size_; ++x, ++pixel_counter, ++cur_img_ptr, ++ref_patch_cache_ptr){
         // compute residual
         const float intensity_cur = w_cur_tl*cur_img_ptr[0] + w_cur_tr*cur_img_ptr[1] + w_cur_bl*cur_img_ptr[stride] + w_cur_br*cur_img_ptr[stride+1];
         const float res = intensity_cur - (*ref_patch_cache_ptr);
@@ -221,10 +214,12 @@ double SparseImgAlign::computeResiduals(
         chi2 += res*res*weight;
         n_meas_++;
 
-        if(linearize_system)
-        {
+        if(linearize_system){
           // compute Jacobian, weighted Hessian and weighted "steepest descend images" (times error)
           const Vector6d J(jacobian_cache_.col(feature_counter*patch_area_ + pixel_counter));
+// 		  Eigen对矩阵乘法自动引入了临时变量，对的matA=matA*matA这是必须的，
+// 		  但是对matB=matA*matA这样便是不必要的了。我们可以使用noalias()函数来声明这里没有混淆，
+// 		  matA*matA的结果可以直接赋值为matB。(这样可以加速)
           H_.noalias() += J*J.transpose()*weight;
           Jres_.noalias() -= J*res*weight;
           if(display_)
@@ -243,15 +238,14 @@ double SparseImgAlign::computeResiduals(
 
 int SparseImgAlign::solve()
 {
+	//ldlt稀疏矩阵的Cholesky分解　　Hx = Jres_
   x_ = H_.ldlt().solve(Jres_);
   if((bool) std::isnan((double) x_[0]))
     return 0;
   return 1;
 }
 
-void SparseImgAlign::update(
-    const ModelType& T_curold_from_ref,
-    ModelType& T_curnew_from_ref)
+void SparseImgAlign::update( const ModelType& T_curold_from_ref, ModelType& T_curnew_from_ref)
 {
   T_curnew_from_ref =  T_curold_from_ref * SE3::exp(-x_);
 }
@@ -261,8 +255,7 @@ void SparseImgAlign::startIteration()
 
 void SparseImgAlign::finishIteration()
 {
-  if(display_)
-  {
+  if(display_){
     cv::namedWindow("residuals", CV_WINDOW_AUTOSIZE);
     cv::imshow("residuals", resimg_*10);
     cv::waitKey(0);

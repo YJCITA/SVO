@@ -110,6 +110,7 @@ void Map::getCloseKeyframes(
   for(auto kf : keyframes_)
   {
     // check if kf has overlaping field of view with frame, use therefore KeyPoints
+	  // 统计这一帧中的所有KeyPoints 看有多少能被new frame观测到
     for(auto keypoint : kf->key_pts_)
     {
       if(keypoint == nullptr)

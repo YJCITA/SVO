@@ -42,10 +42,9 @@ FrameHandlerMono::FrameHandlerMono(vk::AbstractCamera* cam) :
 void FrameHandlerMono::initialize()
 {
   feature_detection::DetectorPtr feature_detector(
-      new feature_detection::FastDetector(
-          cam_->width(), cam_->height(), Config::gridSize(), Config::nPyrLevels()));
+		new feature_detection::FastDetector( cam_->width(), cam_->height(), Config::gridSize(), Config::nPyrLevels()));
   DepthFilter::callback_t depth_filter_cb = boost::bind(
-      &MapPointCandidates::newCandidatePoint, &map_.point_candidates_, _1, _2);
+		&MapPointCandidates::newCandidatePoint, &map_.point_candidates_, _1, _2);
   depth_filter_ = new DepthFilter(feature_detector, depth_filter_cb);
   depth_filter_->startThread();
 }
@@ -136,21 +135,22 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   // Set initial pose TODO use prior
   new_frame_->T_f_w_ = last_frame_->T_f_w_;
 
-  // 1. 稀疏直接法：
-  // sparse image align
+  //1. sparse image align 稀疏直接法
   SVO_START_TIMER("sparse_img_align");
-  SparseImgAlign img_align(Config::kltMaxLevel(), Config::kltMinLevel(),
-                           30, SparseImgAlign::GaussNewton, false, false);
+  //参数 int max_level, int min_level, int n_iter, Method method, bool display, bool verbose
+  SparseImgAlign img_align(Config::kltMaxLevel(), Config::kltMinLevel(), 30, 
+						   SparseImgAlign::GaussNewton, false, false);
   size_t img_align_n_tracked = img_align.run(last_frame_, new_frame_);
   SVO_STOP_TIMER("sparse_img_align");
   SVO_LOG(img_align_n_tracked);
   SVO_DEBUG_STREAM("Img Align:\t Tracked = " << img_align_n_tracked);
 
-  // 2.  重投影
-  // map reprojection & feature alignment
+  // 2. map reprojection & feature alignment
   SVO_START_TIMER("reproject");
+  // 重投影误差主函数
   reprojector_.reprojectMap(new_frame_, overlap_kfs_);
   SVO_STOP_TIMER("reproject");
+  
   const size_t repr_n_new_references = reprojector_.n_matches_;
   const size_t repr_n_mps = reprojector_.n_trials_;
   SVO_LOG2(repr_n_mps, repr_n_new_references);
@@ -174,6 +174,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   SVO_START_TIMER("pose_optimizer");
   size_t sfba_n_edges_final;
   double sfba_thresh, sfba_error_init, sfba_error_final;
+   // 调整位姿变换李代数优化重投影位置误差
   pose_optimizer::optimizeGaussNewton(
       Config::poseOptimThresh(), Config::poseOptimNumIter(), false,
       new_frame_, sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
@@ -191,6 +192,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
 
   // structure optimization
   SVO_START_TIMER("point_optimizer");
+   // 调整三维点坐标(x,y,z)优化重投影位置误差
   optimizeStructure(new_frame_, Config::structureOptimMaxPts(), Config::structureOptimNumIter());
   SVO_STOP_TIMER("point_optimizer");
 
@@ -204,11 +206,12 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   }
   double depth_mean, depth_min;
   frame_utils::getSceneDepth(*new_frame_, depth_mean, depth_min);
-  if(!needNewKf(depth_mean) || tracking_quality_ == TRACKING_BAD)
-  {
+   // KF 的判断标准: 如果new_frame_ 跟与它相邻的所有KF之间的相对平移都超过了场景平均深度的12%
+  if(!needNewKf(depth_mean) || tracking_quality_ == TRACKING_BAD){
     depth_filter_->addFrame(new_frame_);
     return RESULT_NO_KEYFRAME;
   }
+  // 设置KF
   new_frame_->setKeyframe();
   SVO_DEBUG_STREAM("New keyframe selected.");
 

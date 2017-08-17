@@ -30,8 +30,7 @@
 
 namespace svo {
 
-Reprojector::Reprojector(vk::AbstractCamera* cam, Map& map) :
-    map_(map)
+Reprojector::Reprojector(vk::AbstractCamera* cam, Map& map) : map_(map)
 {
   initializeGrid(cam);
 }
@@ -62,9 +61,7 @@ void Reprojector::resetGrid()
   std::for_each(grid_.cells.begin(), grid_.cells.end(), [&](Cell* c){ c->clear(); });
 }
 
-void Reprojector::reprojectMap(
-    FramePtr frame,
-    std::vector< std::pair<FramePtr,std::size_t> >& overlap_kfs)
+void Reprojector::reprojectMap( FramePtr frame, std::vector< std::pair<FramePtr,std::size_t> >& overlap_kfs)
 {
   resetGrid();
 
@@ -118,13 +115,10 @@ void Reprojector::reprojectMap(
   {
     boost::unique_lock<boost::mutex> lock(map_.point_candidates_.mut_);
     auto it=map_.point_candidates_.candidates_.begin();
-    while(it!=map_.point_candidates_.candidates_.end())
-    {
-      if(!reprojectPoint(frame, it->first))
-      {
+    while(it!=map_.point_candidates_.candidates_.end()){
+      if(!reprojectPoint(frame, it->first)){
         it->first->n_failed_reproj_ += 3;
-        if(it->first->n_failed_reproj_ > 30)
-        {
+        if(it->first->n_failed_reproj_ > 30){
           map_.point_candidates_.deleteCandidate(*it);
           it = map_.point_candidates_.candidates_.erase(it);
           continue;
@@ -139,8 +133,7 @@ void Reprojector::reprojectMap(
   // At the end, we should have at maximum one reprojected point per cell.
   // 遍历所有的单元格，注意现在每个单元格中可能存在多个投影点
   SVO_START_TIMER("feature_align");
-  for(size_t i=0; i<grid_.cells.size(); ++i)
-  {
+  for(size_t i=0; i<grid_.cells.size(); ++i){
     // we prefer good quality points over unkown quality (more likely to match)
     // and unknown quality over candidates (position not optimized)
 	// 这里作者为了速度考虑，不是对图像上的所有cell都挑选，随机挑选了maxFts这么多个cell

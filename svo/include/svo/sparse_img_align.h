@@ -30,6 +30,7 @@ namespace svo {
 class Feature;
 
 /// Optimize the pose of the frame by minimizing the photometric error of feature patches.
+// NLLSSolver:Abstract Nonlinear Least-Squares Solver Class
 class SparseImgAlign : public vk::NLLSSolver<6, SE3>
 {
   static const int patch_halfsize_ = 2;

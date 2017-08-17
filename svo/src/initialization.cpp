@@ -68,6 +68,7 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
   for(size_t i=0; i<xyz_in_cur_.size(); ++i)
     depth_vec.push_back((xyz_in_cur_[i]).z());
   double scene_depth_median = vk::getMedian(depth_vec);
+  
   // 因为computeHomography 算出来的平移是带尺度的，要归一化到统一的尺度下
   double scale = Config::mapScale()/scene_depth_median;
   frame_cur->T_f_w_ = T_cur_from_ref_ * frame_ref_->T_f_w_;
@@ -77,17 +78,17 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
 
   // For each inlier create 3D point and add feature in both frames
   SE3 T_world_cur = frame_cur->T_f_w_.inverse();
-  for(vector<int>::iterator it=inliers_.begin(); it!=inliers_.end(); ++it)
-  {
+  for(vector<int>::iterator it=inliers_.begin(); it!=inliers_.end(); ++it){
     Vector2d px_cur(px_cur_[*it].x, px_cur_[*it].y);
     Vector2d px_ref(px_ref_[*it].x, px_ref_[*it].y);
-    if(frame_ref_->cam_->isInFrame(px_cur.cast<int>(), 10) && frame_ref_->cam_->isInFrame(px_ref.cast<int>(), 10) && xyz_in_cur_[*it].z() > 0)
-    {
+    if(frame_ref_->cam_->isInFrame(px_cur.cast<int>(), 10) && frame_ref_->cam_->isInFrame(px_ref.cast<int>(), 10) 
+				&& xyz_in_cur_[*it].z() > 0){
       Vector3d pos = T_world_cur * (xyz_in_cur_[*it]*scale);
       Point* new_point = new Point(pos);
 
       Feature* ftr_cur(new Feature(frame_cur.get(), new_point, px_cur, f_cur_[*it], 0));
       frame_cur->addFeature(ftr_cur);
+	  // 特征点也要存好它被哪些帧看到了。bundler adjustment 的时候要用
       new_point->addFrameRef(ftr_cur);
 
       Feature* ftr_ref(new Feature(frame_ref_.get(), new_point, px_ref, f_ref_[*it], 0));
@@ -168,19 +169,13 @@ void trackKlt(
   }
 }
 
-void computeHomography(
-    const vector<Vector3d>& f_ref,
-    const vector<Vector3d>& f_cur,
-    double focal_length,
-    double reprojection_threshold,
-    vector<int>& inliers,
-    vector<Vector3d>& xyz_in_cur,
-    SE3& T_cur_from_ref)
+void computeHomography( const vector<Vector3d>& f_ref,  const vector<Vector3d>& f_cur,
+		double focal_length, double reprojection_threshold, vector<int>& inliers,
+		vector<Vector3d>& xyz_in_cur,  SE3& T_cur_from_ref)
 {
   vector<Vector2d > uv_ref(f_ref.size());
   vector<Vector2d > uv_cur(f_cur.size());
-  for(size_t i=0, i_max=f_ref.size(); i<i_max; ++i)
-  {
+  for(size_t i=0, i_max=f_ref.size(); i<i_max; ++i){
     uv_ref[i] = vk::project2d(f_ref[i]);
     uv_cur[i] = vk::project2d(f_cur[i]);
   }
