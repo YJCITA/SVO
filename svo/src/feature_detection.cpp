@@ -63,15 +63,11 @@ FastDetector::FastDetector(
         AbstractDetector(img_width, img_height, cell_size, n_pyr_levels)
 {}
 
-void FastDetector::detect(
-    Frame* frame,
-    const ImgPyr& img_pyr,
-    const double detection_threshold,
-    Features& fts)
+void FastDetector::detect( Frame* frame, const ImgPyr& img_pyr, 
+						   const double detection_threshold, Features& fts)
 {
   Corners corners(grid_n_cols_*grid_n_rows_, Corner(0,0,detection_threshold,0,0.0f));
-  for(int L=0; L<n_pyr_levels_; ++L)
-  {
+  for(int L=0; L<n_pyr_levels_; ++L){
     const int scale = (1<<L);
     vector<fast::fast_xy> fast_corners;
 #if __SSE2__
@@ -91,8 +87,7 @@ void FastDetector::detect(
     fast::fast_corner_score_10((fast::fast_byte*) img_pyr[L].data, img_pyr[L].cols, fast_corners, 20, scores);
     fast::fast_nonmax_3x3(fast_corners, scores, nm_corners);
 
-    for(auto it=nm_corners.begin(), ite=nm_corners.end(); it!=ite; ++it)
-    {
+    for(auto it=nm_corners.begin(), ite=nm_corners.end(); it!=ite; ++it){
       fast::fast_xy& xy = fast_corners.at(*it);
 	   // 判断特征点在哪个grid里
       const int k = static_cast<int>((xy.y*scale)/cell_size_)*grid_n_cols_

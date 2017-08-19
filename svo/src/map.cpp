@@ -103,24 +103,17 @@ void Map::addKeyframe(FramePtr new_keyframe)
   keyframes_.push_back(new_keyframe);
 }
 
-void Map::getCloseKeyframes(
-    const FramePtr& frame,
-    std::list< std::pair<FramePtr,double> >& close_kfs) const
+void Map::getCloseKeyframes(const FramePtr& frame, std::list< std::pair<FramePtr,double> >& close_kfs) const
 {
-  for(auto kf : keyframes_)
-  {
+  for(auto kf : keyframes_){
     // check if kf has overlaping field of view with frame, use therefore KeyPoints
-	  // 统计这一帧中的所有KeyPoints 看有多少能被new frame观测到
-    for(auto keypoint : kf->key_pts_)
-    {
+	// 统计这一帧中的所有KeyPoints 看有多少能被new frame观测到
+    for(auto keypoint : kf->key_pts_){
       if(keypoint == nullptr)
         continue;
 
-      if(frame->isVisible(keypoint->point->pos_))
-      {
-        close_kfs.push_back(
-            std::make_pair(
-                kf, (frame->T_f_w_.translation()-kf->T_f_w_.translation()).norm()));
+      if(frame->isVisible(keypoint->point->pos_)){
+        close_kfs.push_back(std::make_pair( kf, (frame->T_f_w_.translation() - kf->T_f_w_.translation()).norm()));
         break; // this keyframe has an overlapping field of view -> add to close_kfs
       }
     }

@@ -37,7 +37,7 @@ Visualization Manager:
   Class: ""
   Displays:
     - Alpha: 0.5
-      Cell Size: 0.5
+      Cell Size: 0.3
       Class: rviz/Grid
       Color: 160; 160; 164
       Enabled: true
@@ -73,7 +73,8 @@ Visualization Manager:
       Marker Topic: /svo/keyframes
       Name: Marker
       Namespaces:
-        {}
+        cams: true
+        kfs: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -81,7 +82,8 @@ Visualization Manager:
       Marker Topic: /svo/points
       Name: Marker
       Namespaces:
-        {}
+        pts: true
+        trajectory: true
       Queue Size: 100
       Value: true
     - Class: rviz/Image
@@ -120,22 +122,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 9.46331
+      Distance: 7.09959
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.340934
-        Y: 0.591358
-        Z: -0.560311
+        X: 0.0443719
+        Y: 0.476303
+        Z: -0.614279
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.855204
+      Pitch: 1.1602
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.70215
+      Yaw: 4.68215
     Saved: ~
 Window Geometry:
   Displays:
@@ -155,5 +157,5 @@ Window Geometry:
   Views:
     collapsed: true
   Width: 1808
-  X: 442
-  Y: 137
+  X: 432
+  Y: 127

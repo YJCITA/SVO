@@ -199,11 +199,11 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   // select keyframe
   core_kfs_.insert(new_frame_);
   setTrackingQuality(sfba_n_edges_final);
-  if(tracking_quality_ == TRACKING_INSUFFICIENT)
-  {
+  if(tracking_quality_ == TRACKING_INSUFFICIENT){
     new_frame_->T_f_w_ = last_frame_->T_f_w_; // reset to avoid crazy pose jumps
     return RESULT_FAILURE;
   }
+  
   double depth_mean, depth_min;
   frame_utils::getSceneDepth(*new_frame_, depth_mean, depth_min);
    // KF 的判断标准: 如果new_frame_ 跟与它相邻的所有KF之间的相对平移都超过了场景平均深度的12%
@@ -325,12 +325,11 @@ void FrameHandlerMono::setFirstFrame(const FramePtr& first_frame)
 
 bool FrameHandlerMono::needNewKf(double scene_depth_mean)
 {
-  for(auto it=overlap_kfs_.begin(), ite=overlap_kfs_.end(); it!=ite; ++it)
-  {
+  for(auto it=overlap_kfs_.begin(), ite=overlap_kfs_.end(); it!=ite; ++it){
     Vector3d relpos = new_frame_->w2f(it->first->pos());
     if(fabs(relpos.x())/scene_depth_mean < Config::kfSelectMinDist() &&
        fabs(relpos.y())/scene_depth_mean < Config::kfSelectMinDist()*0.8 &&
-       fabs(relpos.z())/scene_depth_mean < Config::kfSelectMinDist()*1.3)
+       fabs(relpos.z())/scene_depth_mean < Config::kfSelectMinDist()*1.2)
       return false;
   }
   return true;

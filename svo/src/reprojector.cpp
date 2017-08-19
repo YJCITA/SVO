@@ -64,24 +64,25 @@ void Reprojector::resetGrid()
 void Reprojector::reprojectMap( FramePtr frame, std::vector< std::pair<FramePtr,std::size_t> >& overlap_kfs)
 {
   resetGrid();
-
   // Identify those Keyframes which share a common field of view.
   SVO_START_TIMER("reproject_kfs");
   list< pair<FramePtr,double> > close_kfs;
   // 通过图像中是否有共同观测到的keypoint 获取CloseKeyframes
+  // 获取所有有视眼重叠的KF
   map_.getCloseKeyframes(frame, close_kfs);
 
   // Sort KFs with overlap according to their closeness
+  // ???
   close_kfs.sort(boost::bind(&std::pair<FramePtr, double>::second, _1) <
                  boost::bind(&std::pair<FramePtr, double>::second, _2));
 
   // Reproject all mappoints of the closest N kfs with overlap. We only store
   // in which grid cell the points fall.
-  size_t n = 0;
-  overlap_kfs.reserve(options_.max_n_kfs);
-   //将最近的N个有重叠视野的关键帧对应的地图点投影到当前帧
+  //将最近的N个有重叠视野的关键帧对应的地图点投影到当前帧
   //把这些三维点投影到new frame 的所在单元格记录下来。
   //单元格会保存这个三维点的信息
+  size_t n = 0;
+  overlap_kfs.reserve(options_.max_n_kfs);
   for( auto it_frame=close_kfs.begin(), ite_frame=close_kfs.end();
 			it_frame!=ite_frame && n<options_.max_n_kfs; ++it_frame, ++n )
   {
@@ -90,7 +91,7 @@ void Reprojector::reprojectMap( FramePtr frame, std::vector< std::pair<FramePtr,
 
     // Try to reproject each mappoint that the other KF observes
 	// 对这个参考帧观察到的点投影到当前帧中
-    for(auto it_ftr=ref_frame->fts_.begin(), ite_ftr=ref_frame->fts_.end();it_ftr!=ite_ftr; ++it_ftr){
+    for(auto it_ftr=ref_frame->fts_.begin(),ite_ftr=ref_frame->fts_.end();it_ftr!=ite_ftr; ++it_ftr){
       // check if the feature has a mappoint assigned
       if((*it_ftr)->point == NULL)
         continue;
@@ -159,12 +160,10 @@ bool Reprojector::reprojectCell(Cell& cell, FramePtr frame)
   cell.sort(boost::bind(&Reprojector::pointQualityComparator, _1, _2));
   // cell 中保存了多个投影点
   Cell::iterator it=cell.begin();
-  while(it!=cell.end())
-  {
+  while(it!=cell.end()){
     ++n_trials_;
 
-    if(it->pt->type_ == Point::TYPE_DELETED)
-    {
+    if(it->pt->type_ == Point::TYPE_DELETED){
       it = cell.erase(it);
       continue;
     }
@@ -173,8 +172,7 @@ bool Reprojector::reprojectCell(Cell& cell, FramePtr frame)
     if(options_.find_match_direct)
       found_match = matcher_.findMatchDirect(*it->pt, *frame, it->px);
 	// 如果这个点附近没有好的优化位置，则删掉这个点继续寻找
-    if(!found_match)
-    {
+    if(!found_match){
       it->pt->n_failed_reproj_++;
       if(it->pt->type_ == Point::TYPE_UNKNOWN && it->pt->n_failed_reproj_ > 15)
         map_.safeDeletePoint(it->pt);
@@ -194,8 +192,7 @@ bool Reprojector::reprojectCell(Cell& cell, FramePtr frame)
     // round is only done if this frame is selected as keyframe.
     new_feature->point = it->pt;
 
-    if(matcher_.ref_ftr_->type == Feature::EDGELET)
-    {
+    if(matcher_.ref_ftr_->type == Feature::EDGELET){
       new_feature->type = Feature::EDGELET;
       new_feature->grad = matcher_.A_cur_ref_*matcher_.ref_ftr_->grad;
       new_feature->grad.normalize();
