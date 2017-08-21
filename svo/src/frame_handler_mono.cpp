@@ -94,6 +94,7 @@ FrameHandlerMono::UpdateResult FrameHandlerMono::processFirstFrame()
   new_frame_->T_f_w_ = SE3(Matrix3d::Identity(), Vector3d::Zero());
   if(klt_homography_init_.addFirstFrame(new_frame_) == initialization::FAILURE)
     return RESULT_NO_KEYFRAME;
+  
   new_frame_->setKeyframe();
   map_.addKeyframe(new_frame_);
   stage_ = STAGE_SECOND_FRAME;
@@ -135,11 +136,11 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   // Set initial pose TODO use prior
   new_frame_->T_f_w_ = last_frame_->T_f_w_;
 
-  //1. sparse image align 稀疏直接法
+  // 1. sparse image align 稀疏直接法
   SVO_START_TIMER("sparse_img_align");
   //参数 int max_level, int min_level, int n_iter, Method method, bool display, bool verbose
-  SparseImgAlign img_align(Config::kltMaxLevel(), Config::kltMinLevel(), 30, 
-						   SparseImgAlign::GaussNewton, false, false);
+  SparseImgAlign img_align(Config::kltMaxLevel(), Config::kltMinLevel(), 30, SparseImgAlign::GaussNewton, false, false);
+  // main
   size_t img_align_n_tracked = img_align.run(last_frame_, new_frame_);
   SVO_STOP_TIMER("sparse_img_align");
   SVO_LOG(img_align_n_tracked);

@@ -40,6 +40,8 @@ struct Corner
 typedef vector<Corner> Corners;
 
 /// All detectors should derive from this abstract class.
+// 定义抽象特征提取的时候，考虑了特征的分散，将图像分成grid_n_cols_*grid_n_rows_个格子，
+// 每个格子尽量对应一个特征。
 class AbstractDetector
 {
 public:
@@ -64,14 +66,14 @@ public:
   void setExistingFeatures(const Features& fts);
 
 protected:
-
   static const int border_ = 8; //!< no feature should be within 8px of border.
-  const int cell_size_;
-  const int n_pyr_levels_;
-  const int grid_n_cols_;
-  const int grid_n_rows_;
-  vector<bool> grid_occupancy_;
+  const int cell_size_;     //!< 设置寻找角点单元格的大小
+  const int n_pyr_levels_;  //!< 图像金字塔的等级
+  const int grid_n_cols_;   //!< 将图像划分为格子后的列数
+  const int grid_n_rows_;   //!< 将图像划分为格子后的行数
+  vector<bool> grid_occupancy_; //!< 设定划分的所有格子数是否被占用
 
+  /// 将所有格子重新设置，设置为没有占用
   void resetGrid();
 
   inline int getCellIndex(int x, int y, int level)
@@ -81,6 +83,8 @@ protected:
   }
 };
 typedef boost::shared_ptr<AbstractDetector> DetectorPtr;
+
+
 
 /// FAST detector by Edward Rosten.
 class FastDetector : public AbstractDetector

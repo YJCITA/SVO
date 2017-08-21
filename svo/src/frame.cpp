@@ -48,6 +48,7 @@ Frame::~Frame()
 void Frame::initFrame(const cv::Mat& img)
 {
   // check image
+  // 检测图像，保证图像大小与相机模型大小一致，以及图像为灰度图像
   if(img.empty() || img.type() != CV_8UC1 || img.cols != cam_->width() || img.rows != cam_->height())
     throw std::runtime_error("Frame: provided image has not the same size as the camera model or image is not grayscale");
 
@@ -69,16 +70,22 @@ void Frame::addFeature(Feature* ftr)
   fts_.push_back(ftr);
 }
 
+// 这些点用于快速检测是否两个帧有重叠的视野，选取5个特征一个在图像中点另外4个靠
+// 近图像的4个边角，并且这5个特征都要有对应的3D点
 void Frame::setKeyPoints()
 {
+  // 如果特征指向的3d点为空，则设置该特征为NULL
   for(size_t i = 0; i < 5; ++i)
     if(key_pts_[i] != NULL)
       if(key_pts_[i]->point == NULL)
         key_pts_[i] = NULL;
 
-  std::for_each(fts_.begin(), fts_.end(), [&](Feature* ftr){ if(ftr->point != NULL) checkKeyPoints(ftr); });
+  std::for_each(fts_.begin(), fts_.end(), [&](Feature* ftr){ 
+      if(ftr->point != NULL) 
+          checkKeyPoints(ftr); });
 }
 
+// 设置５个点（４个角，加中心）
 void Frame::checkKeyPoints(Feature* ftr)
 {
   const int cu = cam_->width()/2;
@@ -91,23 +98,27 @@ void Frame::checkKeyPoints(Feature* ftr)
         < std::max(std::fabs(key_pts_[0]->px[0]-cu), std::fabs(key_pts_[0]->px[1]-cv)))
     key_pts_[0] = ftr;
 
-  if(ftr->px[0] >= cu && ftr->px[1] >= cv)
-  {
+  // right-down
+  if(ftr->px[0] >= cu && ftr->px[1] >= cv){
     if(key_pts_[1] == NULL)
       key_pts_[1] = ftr;
     else if((ftr->px[0]-cu) * (ftr->px[1]-cv)
           > (key_pts_[1]->px[0]-cu) * (key_pts_[1]->px[1]-cv))
       key_pts_[1] = ftr;
   }
-  if(ftr->px[0] >= cu && ftr->px[1] < cv)
-  {
+  
+  // right-up
+  if(ftr->px[0] >= cu && ftr->px[1] < cv){
     if(key_pts_[2] == NULL)
       key_pts_[2] = ftr;
     else if((ftr->px[0]-cu) * (ftr->px[1]-cv)
           > (key_pts_[2]->px[0]-cu) * (key_pts_[2]->px[1]-cv))
       key_pts_[2] = ftr;
   }
-  if(ftr->px[0] < cv && ftr->px[1] < cv)
+  
+  // left-up
+//   if(ftr->px[0] < cv && ftr->px[1] < cv)  // -YJ- origin bug
+  if(ftr->px[0] < cu && ftr->px[1] < cv)
   {
     if(key_pts_[3] == NULL)
       key_pts_[3] = ftr;
@@ -115,8 +126,10 @@ void Frame::checkKeyPoints(Feature* ftr)
           > (key_pts_[3]->px[0]-cu) * (key_pts_[3]->px[1]-cv))
       key_pts_[3] = ftr;
   }
-  if(ftr->px[0] < cv && ftr->px[1] >= cv)
-  {
+  
+  // left-up
+//   if(ftr->px[0] < cv && ftr->px[1] >= cv)// -YJ- origin bug
+  if(ftr->px[0] < cu && ftr->px[1] >= cv){
     if(key_pts_[4] == NULL)
       key_pts_[4] = ftr;
     else if((ftr->px[0]-cu) * (ftr->px[1]-cv)
@@ -134,8 +147,9 @@ void Frame::removeKeyPoint(Feature* ftr)
       found = true;
     }
   });
+  // 最后这边要注意的是如果特征点删除了，其可能对于关键特征点，这个关键特征点必须更新
   if(found)
-    setKeyPoints();
+    setKeyPoints(); 
 }
 
 bool Frame::isVisible(const Vector3d& xyz_w) const

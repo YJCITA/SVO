@@ -30,30 +30,35 @@ InitResult KltHomographyInit::addFirstFrame(FramePtr frame_ref)
 {
   reset();
   detectFeatures(frame_ref, px_ref_, f_ref_);
-  if(px_ref_.size() < 100)
-  {
+  // 确保第一帧的图像中检测到的特征数大于100个
+  if(px_ref_.size() < 100){
     SVO_WARN_STREAM_THROTTLE(2.0, "First image has less than 100 features. Retry in more textured environment.");
     return FAILURE;
   }
   frame_ref_ = frame_ref;
+  // 先设置当前帧的特征与参考帧的特征一致
   px_cur_.insert(px_cur_.begin(), px_ref_.begin(), px_ref_.end());
   return SUCCESS;
 }
+
 
 InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
 {
   trackKlt(frame_ref_, frame_cur, px_ref_, px_cur_, f_ref_, f_cur_, disparities_);
   SVO_INFO_STREAM("Init: KLT tracked "<< disparities_.size() <<" features");
 
+  // 符合光流跟踪的特征数
   if(disparities_.size() < Config::initMinTracked())
     return FAILURE;
 
+  // 对两帧光流跟踪之后像素差值的中值
   double disparity = vk::getMedian(disparities_);
   SVO_INFO_STREAM("Init: KLT "<<disparity<<"px average disparity.");
+  //  如果中值小于给定配置参数，则表明这一帧不是关键帧，也就是刚开始的时候两帧不能太近
   if(disparity < Config::initMinDisparity())
     return NO_KEYFRAME;
 
-  // computeHomography 顺带计算出来了特征点的深度
+  // computeHomography //  计算单应矩阵
   computeHomography( f_ref_, f_cur_, frame_ref_->cam_->errorMultiplier2(), 
 					 Config::poseOptimThresh(), inliers_, xyz_in_cur_, T_cur_from_ref_);
   SVO_INFO_STREAM("Init: Homography RANSAC "<<inliers_.size()<<" inliers.");
@@ -105,22 +110,23 @@ void KltHomographyInit::reset()
   frame_ref_.reset();
 }
 
-void detectFeatures(
-    FramePtr frame,
-    vector<cv::Point2f>& px_vec,
-    vector<Vector3d>& f_vec)
+/// 检测fast角度，输出的是对应的点和点的方向向量（可以考虑为点的反投影坐标）
+void detectFeatures( FramePtr frame, vector<cv::Point2f>& px_vec, vector<Vector3d>& f_vec)
 {
   Features new_features;
+  //参数: const int img_width,const int img_height,const int cell_size,const int n_pyr_levels
   feature_detection::FastDetector detector(
       frame->img().cols, frame->img().rows, Config::gridSize(), Config::nPyrLevels());
+  
   detector.detect(frame.get(), frame->img_pyr_, Config::triangMinCornerScore(), new_features);
 
   // now for all maximum corners, initialize a new seed
+  // 返回特征位置和特征的单位向量
   px_vec.clear(); px_vec.reserve(new_features.size());
   f_vec.clear(); f_vec.reserve(new_features.size());
   std::for_each(new_features.begin(), new_features.end(), [&](Feature* ftr){
     px_vec.push_back(cv::Point2f(ftr->px[0], ftr->px[1]));
-    f_vec.push_back(ftr->f);
+    f_vec.push_back(ftr->f); // f:Unit-bearing vector of the feature.
     delete ftr;
   });
 }
@@ -152,10 +158,9 @@ void trackKlt(
   vector<Vector3d>::iterator f_ref_it = f_ref.begin();
   f_cur.clear(); f_cur.reserve(px_cur.size());
   disparities.clear(); disparities.reserve(px_cur.size());
-  for(size_t i=0; px_ref_it != px_ref.end(); ++i)
-  {
-    if(!status[i])
-    {
+  for(size_t i=0; px_ref_it != px_ref.end(); ++i){
+    if(!status[i]){
+        //如果光流没有发现，则删除
       px_ref_it = px_ref.erase(px_ref_it);
       px_cur_it = px_cur.erase(px_cur_it);
       f_ref_it = f_ref.erase(f_ref_it);
@@ -169,6 +174,8 @@ void trackKlt(
   }
 }
 
+// ??? 这边给出一个提示，因为要保证16字节对齐，对于Vector2d之类的容器形式要写成 
+// std::vector<Vector2d, aligned_allocator<Vector2d>>
 void computeHomography( const vector<Vector3d>& f_ref,  const vector<Vector3d>& f_cur,
 		double focal_length, double reprojection_threshold, vector<int>& inliers,
 		vector<Vector3d>& xyz_in_cur,  SE3& T_cur_from_ref)
@@ -176,11 +183,12 @@ void computeHomography( const vector<Vector3d>& f_ref,  const vector<Vector3d>& 
   vector<Vector2d > uv_ref(f_ref.size());
   vector<Vector2d > uv_cur(f_cur.size());
   for(size_t i=0, i_max=f_ref.size(); i<i_max; ++i){
-    uv_ref[i] = vk::project2d(f_ref[i]);
+    uv_ref[i] = vk::project2d(f_ref[i]); // uv_ref是深度归一化后的
     uv_cur[i] = vk::project2d(f_cur[i]);
   }
   vk::Homography Homography(uv_ref, uv_cur, focal_length, reprojection_threshold);
   Homography.computeSE3fromMatches();
+  
   vector<int> outliers;
   vk::computeInliers(f_cur, f_ref,
                      Homography.T_c2_from_c1.rotation_matrix(), Homography.T_c2_from_c1.translation(),

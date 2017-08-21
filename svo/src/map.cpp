@@ -108,10 +108,12 @@ void Map::getCloseKeyframes(const FramePtr& frame, std::list< std::pair<FramePtr
   for(auto kf : keyframes_){
     // check if kf has overlaping field of view with frame, use therefore KeyPoints
 	// 统计这一帧中的所有KeyPoints 看有多少能被new frame观测到
+      // 检测当前帧与关键帧之间是否有重叠的视野，通过关键点(特征)来进行计算
     for(auto keypoint : kf->key_pts_){
       if(keypoint == nullptr)
         continue;
-
+      
+      // TODO:-YJ- 仅仅是有一个点在current视野内就认为是有共同视野，太粗糙
       if(frame->isVisible(keypoint->point->pos_)){
         close_kfs.push_back(std::make_pair( kf, (frame->T_f_w_.translation() - kf->T_f_w_.translation()).norm()));
         break; // this keyframe has an overlapping field of view -> add to close_kfs

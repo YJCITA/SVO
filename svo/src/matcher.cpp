@@ -30,6 +30,7 @@ namespace svo {
 
 namespace warp {
 
+// 计算两帧之间的仿射变换
 void getWarpMatrixAffine(
     const vk::AbstractCamera& cam_ref,
     const vk::AbstractCamera& cam_cur,
@@ -42,24 +43,31 @@ void getWarpMatrixAffine(
 {
   // Compute affine warp matrix A_ref_cur
   const int halfpatch_size = 5;
+  
   // 得到pixel f 在ref frame 中的3d 坐标
   const Vector3d xyz_ref(f_ref*depth_ref);
+  
   // 将像素f 在横轴方向扩展几个像素px_ref.u + halfpatch_size，并得到该点的3d坐标
   Vector3d xyz_du_ref(cam_ref.cam2world(px_ref + Vector2d(halfpatch_size,0)*(1<<level_ref)));
+  
   // 将像素f 在 纵轴方向扩展几个像素px_ref.v + halfpatch_size，并得到该点的3d坐标
   Vector3d xyz_dv_ref(cam_ref.cam2world(px_ref + Vector2d(0,halfpatch_size)*(1<<level_ref)));
+  
   // 将这两个3d坐标归一化到pixel f 同一深度
   xyz_du_ref *= xyz_ref[2]/xyz_du_ref[2];
   xyz_dv_ref *= xyz_ref[2]/xyz_dv_ref[2];
+  
   // 将这个点转化到cur frame中，并投影到像素坐标
   const Vector2d px_cur(cam_cur.world2cam(T_cur_ref*(xyz_ref)));
   const Vector2d px_du(cam_cur.world2cam(T_cur_ref*(xyz_du_ref)));
   const Vector2d px_dv(cam_cur.world2cam(T_cur_ref*(xyz_dv_ref)));
+  
   // cur frame和ref frame 相比，横坐标拉伸比例。
   A_cur_ref.col(0) = (px_du - px_cur)/halfpatch_size;
   A_cur_ref.col(1) = (px_dv - px_cur)/halfpatch_size;
 }
 
+// ??
 int getBestSearchLevel(
     const Matrix2d& A_cur_ref,
     const int max_level)
@@ -67,8 +75,7 @@ int getBestSearchLevel(
   // Compute patch level in other image
   int search_level = 0;
   double D = A_cur_ref.determinant();
-  while(D > 3.0 && search_level < max_level)
-  {
+  while(D > 3.0 && search_level < max_level){
     search_level += 1;
     D *= 0.25;
   }
@@ -86,8 +93,7 @@ void warpAffine(
 {
   const int patch_size = halfpatch_size*2 ;
   const Matrix2f A_ref_cur = A_cur_ref.inverse().cast<float>();
-  if(isnan(A_ref_cur(0,0)))
-  {
+  if(isnan(A_ref_cur(0,0))){
     printf("Affine warp is NaN, probably camera has no translation\n"); // TODO
     return;
   }
@@ -95,10 +101,8 @@ void warpAffine(
   // Perform the warp on a larger patch.
   uint8_t* patch_ptr = patch;
   const Vector2f px_ref_pyr = px_ref.cast<float>() / (1<<level_ref);
-  for (int y=0; y<patch_size; ++y)
-  {
-    for (int x=0; x<patch_size; ++x, ++patch_ptr)
-    {
+  for (int y=0; y<patch_size; ++y){
+    for (int x=0; x<patch_size; ++x, ++patch_ptr){
       Vector2f px_patch(x-halfpatch_size, y-halfpatch_size);
       px_patch *= (1<<search_level);
       const Vector2f px(A_ref_cur*px_patch + px_ref_pyr);
@@ -131,6 +135,7 @@ bool depthFromTriangulation(
   return true;
 }
 
+// from 10*10patch --> 8*8patch
 void Matcher::createPatchFromPatchWithBorder()
 {
   uint8_t* ref_patch_ptr = patch_;
@@ -142,25 +147,29 @@ void Matcher::createPatchFromPatchWithBorder()
   }
 }
 
- // 找到特征点所对应的帧ref frame, 保存在3d点的特征中ref_ftr_->frame
-  // 因为存在多个ref frame看到这个特征点，所以选取和当前帧夹角最小的帧
+// 找到特征点所对应的帧ref frame, 保存在3d点的特征中ref_ftr_->frame
+// 因为存在多个ref frame看到这个特征点，所以选取和当前帧夹角最小的帧
 bool Matcher::findMatchDirect( const Point& pt, const Frame& cur_frame, Vector2d& px_cur)
 {
+  // 选取和当前帧夹角最小的帧
   if(!pt.getCloseViewObs(cur_frame.pos(), ref_ftr_))
     return false;
 
-  if(!ref_ftr_->frame->cam_->isInFrame(
-      ref_ftr_->px.cast<int>()/(1<<ref_ftr_->level), halfpatch_size_+2, ref_ftr_->level))
+  if(!ref_ftr_->frame->cam_->isInFrame(ref_ftr_->px.cast<int>()/(1<<ref_ftr_->level), halfpatch_size_+2, ref_ftr_->level))
     return false;
 
-  // warp affine
+  // warp affine 计算两帧之间的仿射变换
   warp::getWarpMatrixAffine(
       *ref_ftr_->frame->cam_, *cur_frame.cam_, ref_ftr_->px, ref_ftr_->f,
       (ref_ftr_->frame->pos() - pt.pos_).norm(),
       cur_frame.T_f_w_ * ref_ftr_->frame->T_f_w_.inverse(), ref_ftr_->level, A_cur_ref_);
+  // ??
   search_level_ = warp::getBestSearchLevel(A_cur_ref_, Config::nPyrLevels()-1);
+  
   warp::warpAffine(A_cur_ref_, ref_ftr_->frame->img_pyr_[ref_ftr_->level], ref_ftr_->px,
                    ref_ftr_->level, search_level_, halfpatch_size_+1, patch_with_border_);
+  
+  // from 10*10patch --> 8*8patch
   createPatchFromPatchWithBorder();
 
   // px_cur should be set

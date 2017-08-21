@@ -62,9 +62,9 @@ size_t SparseImgAlign::run(FramePtr ref_frame, FramePtr cur_frame)
     have_ref_patch_cache_ = false;
     if(verbose_)
       printf("\nPYRAMID LEVEL %i\n---------------\n", level_);
-	// 调用vikit中的　nlls_solver_impl.hpp
-	// 默认调用的是GaussNewton，其中会调用computeResiduals，里面会包含多层金字塔level_
-    optimize(T_cur_from_ref);
+	  // 调用vikit中的　nlls_solver_impl.hpp
+	  // 默认调用的是GaussNewton，其中会调用computeResiduals，里面会包含多层金字塔level_
+      optimize(T_cur_from_ref);
   }
   cur_frame_->T_f_w_ = T_cur_from_ref * ref_frame_->T_f_w_;
   // 会统计用于直接法计算的残差的特征点个数 n_meas_/patch_area_， 
@@ -79,13 +79,15 @@ Matrix<double, 6, 6> SparseImgAlign::getFisherInformation()
   return I;
 }
 
-// 计算雅克比矩阵
+// 首先对当前图像进行Warp处理以对应参考图像
 void SparseImgAlign::precomputeReferencePatches()
 {
-  const int border = patch_halfsize_+1;
+  const int border = patch_halfsize_ + 1;
+  //得到当前金字塔等级参考图像
   const cv::Mat& ref_img = ref_frame_->img_pyr_.at(level_);
   const int stride = ref_img.cols;
   const float scale = 1.0f/(1<<level_);
+  //当前帧世界坐标系中的坐标
   const Vector3d ref_pos = ref_frame_->pos();
   const double focal_length = ref_frame_->cam_->errorMultiplier2();
   size_t feature_counter = 0;
@@ -106,10 +108,12 @@ void SparseImgAlign::precomputeReferencePatches()
     const Vector3d xyz_ref((*it)->f*depth);
 
     // evaluate projection jacobian
+    // 估计投影的雅克比矩阵
     Matrix<double,2,6> frame_jac;
     Frame::jacobian_xyz2uv(xyz_ref, frame_jac);
 
     // compute bilateral interpolation weights for reference image
+    // 对参考图像进行双边差值操作
     const float subpix_u_ref = u_ref-u_ref_i;
     const float subpix_v_ref = v_ref-v_ref_i;
     const float w_ref_tl = (1.0-subpix_u_ref) * (1.0-subpix_v_ref);
@@ -123,7 +127,9 @@ void SparseImgAlign::precomputeReferencePatches()
       for(int x=0; x<patch_size_; ++x, ++ref_img_ptr, ++cache_ptr, ++pixel_counter){
         // precompute interpolated reference patch color
         *cache_ptr = w_ref_tl*ref_img_ptr[0] + w_ref_tr*ref_img_ptr[1] + w_ref_bl*ref_img_ptr[stride] + w_ref_br*ref_img_ptr[stride+1];
-
+        
+        //??? from"Lucas-Kanade 20 Years On: A Unifying Framework"
+        // 采用逆向组合算法(inverse compositional): 通过采取梯度总是在相同位置这一性质
         // we use the inverse compositional: thereby we can take the gradient always at the same position
         // get gradient of warped image (~gradient at warped position)
         float dx = 0.5f * ((w_ref_tl*ref_img_ptr[1] + w_ref_tr*ref_img_ptr[2] + w_ref_bl*ref_img_ptr[stride+1] + w_ref_br*ref_img_ptr[stride+2])
@@ -162,11 +168,11 @@ double SparseImgAlign::computeResiduals( const SE3& T_cur_from_ref, bool lineari
   const float scale = 1.0f/(1<<level_);
   const Vector3d ref_pos(ref_frame_->pos());
   float chi2 = 0.0;
+  // 计算cached jacobian的索引，对应每个特征
   size_t feature_counter = 0; // is used to compute the index of the cached jacobian
   std::vector<bool>::iterator visiblity_it = visible_fts_.begin();
   for(auto it=ref_frame_->fts_.begin(); it!=ref_frame_->fts_.end();
-      ++it, ++feature_counter, ++visiblity_it)
-  {
+            ++it, ++feature_counter, ++visiblity_it){
     // check if feature is within image
     if(!*visiblity_it)
       continue;
@@ -186,6 +192,7 @@ double SparseImgAlign::computeResiduals( const SE3& T_cur_from_ref, bool lineari
       continue;
 
     // compute bilateral interpolation weights for the current image
+    // 对当前图像进行双边插值加权
     const float subpix_u_cur = u_cur-u_cur_i;
     const float subpix_v_cur = v_cur-v_cur_i;
     const float w_cur_tl = (1.0-subpix_u_cur) * (1.0-subpix_v_cur);
@@ -193,6 +200,7 @@ double SparseImgAlign::computeResiduals( const SE3& T_cur_from_ref, bool lineari
     const float w_cur_bl = (1.0-subpix_u_cur) * subpix_v_cur;
     const float w_cur_br = subpix_u_cur * subpix_v_cur;
     float* ref_patch_cache_ptr = reinterpret_cast<float*>(ref_patch_cache_.data) + patch_area_*feature_counter;
+     // 用于计算cached jacobian的索引，每个特征对应的像素索引
     size_t pixel_counter = 0; // is used to compute the index of the cached jacobian
     for(int y=0; y<patch_size_; ++y){
       uint8_t* cur_img_ptr = (uint8_t*) cur_img.data + (v_cur_i+y-patch_halfsize_)*stride + (u_cur_i-patch_halfsize_);
@@ -245,8 +253,10 @@ int SparseImgAlign::solve()
   return 1;
 }
 
+// current ModelType is SE3
 void SparseImgAlign::update( const ModelType& T_curold_from_ref, ModelType& T_curnew_from_ref)
 {
+    // 注意求雅克比矩阵的时候，对Rt无法求导数，改成李代数的形式，这边用SE3::exp
   T_curnew_from_ref =  T_curold_from_ref * SE3::exp(-x_);
 }
 

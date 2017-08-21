@@ -89,11 +89,13 @@ void FastDetector::detect( Frame* frame, const ImgPyr& img_pyr,
 
     for(auto it=nm_corners.begin(), ite=nm_corners.end(); it!=ite; ++it){
       fast::fast_xy& xy = fast_corners.at(*it);
-	   // 判断特征点在哪个grid里
+	   // 判断特征点在哪个grid里; // 获得一维列的索引
       const int k = static_cast<int>((xy.y*scale)/cell_size_)*grid_n_cols_
                   + static_cast<int>((xy.x*scale)/cell_size_);
+      // 如果这个格子里面已经有特征，则该特征可以不必再进行计算了
       if(grid_occupancy_[k])
         continue;
+      //计算shi-Tomasi角点检测，根据阈值选择更好的角点
       const float score = vk::shiTomasiScore(img_pyr[L], xy.x, xy.y);
       if(score > corners.at(k).score)
         corners.at(k) = Corner(xy.x*scale, xy.y*scale, score, L, 0.0f);

@@ -63,9 +63,9 @@ public:
       std::vector< std::pair<FramePtr,std::size_t> >& overlap_kfs);
 
 private:
-
   /// A candidate is a point that projects into the image plane and for which we
   /// will search a maching feature in the image.
+    /// candidate是一个点投影到图片平面，我们在图像中找到了与该点匹配的特征
   struct Candidate {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Point* pt;       //!< 3D point.
@@ -76,16 +76,17 @@ private:
   typedef std::vector<Cell*> CandidateGrid;
 
   /// The grid stores a set of candidate matches. For every grid cell we try to find one match.
+  /// grid用于存储一系列候选匹配.对于每一个grid单元格寻找一个匹配
   struct Grid
   {
-    CandidateGrid cells;
-    vector<int> cell_order;
-    int cell_size;
-    int grid_n_cols;
-    int grid_n_rows;
+    CandidateGrid cells;    //!< 用于存放3D点和对应的投影2D像素坐标列表
+    vector<int> cell_order; //!< 单元格的顺序编号
+    int cell_size;          //!< 单应格的大小
+    int grid_n_cols;        //!< 图像划分单元格的列数
+    int grid_n_rows;        //!< 图像划分单元格的行数
   };
 
-  Grid grid_;
+  Grid grid_;  //!< 图像划分为网格
   Matcher matcher_;
   Map& map_;
 

@@ -178,15 +178,13 @@ bool align2D(
   Matrix3f H; H.setZero();
 
   // compute gradient and hessian
-    // Ji = [dx,dy,1]    // 最后的1 是对残差进行求导，dr/r , 他这里还对patch 的残差进行了估计.
+  // Ji = [dx,dy,1]    // 最后的1 是对残差进行求导，dr/r , 他这里还对patch 的残差进行了估计.
   const int ref_step = patch_size_+2;
   float* it_dx = ref_patch_dx;
   float* it_dy = ref_patch_dy;
-  for(int y=0; y<patch_size_; ++y)
-  {
+  for(int y=0; y<patch_size_; ++y){
     uint8_t* it = ref_patch_with_border + (y+1)*ref_step + 1;
-    for(int x=0; x<patch_size_; ++x, ++it, ++it_dx, ++it_dy)
-    {
+    for(int x=0; x<patch_size_; ++x, ++it, ++it_dx, ++it_dy){
       Vector3f J;
       J[0] = 0.5 * (it[1] - it[-1]);
       J[1] = 0.5 * (it[ref_step] - it[-ref_step]);
@@ -204,13 +202,12 @@ bool align2D(
   float u = cur_px_estimate.x();
   float v = cur_px_estimate.y();
 
-  // termination condition
+  // termination condition 终止条件
   const float min_update_squared = 0.03*0.03;
   const int cur_step = cur_img.step.p[0];
 //  float chi2 = 0;
   Vector3f update; update.setZero();
-  for(int iter = 0; iter<n_iter; ++iter)
-  {
+  for(int iter = 0; iter<n_iter; ++iter){
     int u_r = floor(u);
     int v_r = floor(v);
     if(u_r < halfpatch_size_ || v_r < halfpatch_size_ || u_r >= cur_img.cols-halfpatch_size_ || v_r >= cur_img.rows-halfpatch_size_)
@@ -219,7 +216,7 @@ bool align2D(
     if(isnan(u) || isnan(v)) // TODO very rarely this can happen, maybe H is singular? should not be at corner.. check
       return false;
 
-    // compute interpolation weights
+    // compute interpolation weights 计算插值权重
     float subpix_x = u-u_r;
     float subpix_y = v-v_r;
     float wTL = (1.0-subpix_x)*(1.0-subpix_y);
@@ -227,24 +224,22 @@ bool align2D(
     float wBL = (1.0-subpix_x)*subpix_y;
     float wBR = subpix_x * subpix_y;
 
-    // loop through search_patch, interpolate
+    // loop through search_patch, interpolate 环遍历 插值
     uint8_t* it_ref = ref_patch;
     float* it_ref_dx = ref_patch_dx;
     float* it_ref_dy = ref_patch_dy;
 //    float new_chi2 = 0.0;
     Vector3f Jres; Jres.setZero();
-    for(int y=0; y<patch_size_; ++y)
-    {
+    for(int y=0; y<patch_size_; ++y){
       uint8_t* it = (uint8_t*) cur_img.data + (v_r+y-halfpatch_size_)*cur_step + u_r-halfpatch_size_;
-      for(int x=0; x<patch_size_; ++x, ++it, ++it_ref, ++it_ref_dx, ++it_ref_dy)
-      {
-		  // 在cur中的像素值，双线性插值
+      for(int x=0; x<patch_size_; ++x, ++it, ++it_ref, ++it_ref_dx, ++it_ref_dy){
+        // 在cur中的像素值，双线性插值
         float search_pixel = wTL*it[0] + wTR*it[1] + wBL*it[cur_step] + wBR*it[cur_step+1];
 		// cur 和ref 中像素差值。加上mean_diff  
         float res = search_pixel - *it_ref + mean_diff;
-        Jres[0] -= res*(*it_ref_dx);
-        Jres[1] -= res*(*it_ref_dy);
-        Jres[2] -= res;
+        Jres[0] += res*(*it_ref_dx);
+        Jres[1] += res*(*it_ref_dy);
+        Jres[2] += res;
 //        new_chi2 += res*res;
       }
     }
@@ -262,23 +257,23 @@ bool align2D(
     }
     chi2 = new_chi2;
 */
-    update = Hinv * Jres;
+    update = Hinv * (-Jres);  //负号前面已经添加
     u += update[0];
     v += update[1];
     mean_diff += update[2];
 
-#if SUBPIX_VERBOSE
-    cout << "Iter " << iter << ":"
-         << "\t u=" << u << ", v=" << v
-         << "\t update = " << update[0] << ", " << update[1]
-//         << "\t new chi2 = " << new_chi2 << endl;
-#endif
+    #if SUBPIX_VERBOSE
+        cout << "Iter " << iter << ":"
+            << "\t u=" << u << ", v=" << v
+            << "\t update = " << update[0] << ", " << update[1]
+    //         << "\t new chi2 = " << new_chi2 << endl;
+    #endif
 
     if(update[0]*update[0]+update[1]*update[1] < min_update_squared)
     {
-#if SUBPIX_VERBOSE
-      cout << "converged." << endl;
-#endif
+    #if SUBPIX_VERBOSE
+        cout << "converged." << endl;
+    #endif
       converged=true;
       break;
     }
@@ -287,6 +282,7 @@ bool align2D(
   cur_px_estimate << u, v;
   return converged;
 }
+
 
 #define  DESCALE(x,n)     (((x) + (1 << ((n)-1))) >> (n)) // rounds to closest integer and descales
 

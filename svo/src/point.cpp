@@ -99,23 +99,24 @@ void Point::initNormal()
 // 还是ref_frame j中的p2j作为和cur_frame中匹配的特征点呢？
 // 地图中的point点通过变量obs_记录了它和哪些特征是联系起来的，
 // 这里它知道自己连着p2i,p2j，地图point点会通过一些筛选机制来选择是用p2i还是用p2j，
-// 具体实现在getCloseViewObs函数中
+
+// 根据当前帧的位置得到最近帧对应的特征(夹角最小的)
 bool Point::getCloseViewObs(const Vector3d& framepos, Feature*& ftr) const
 {
   // TODO: get frame with same point of view AND same pyramid level!
-	// obs_dir: 从当前帧摄像机光心指向3d点的向量
-  Vector3d obs_dir(framepos - pos_); obs_dir.normalize();
+  // obs_dir: 从当前帧摄像机光心指向3d点的向量
+  Vector3d obs_dir(framepos - pos_); 
+  obs_dir.normalize();
   auto min_it=obs_.begin();
   double min_cos_angle = 0;
-  for(auto it=obs_.begin(), ite=obs_.end(); it!=ite; ++it)
-  {
-	  //计算其他观测到这个3d点的KF 和这个3d的方向
-    Vector3d dir((*it)->frame->pos() - pos_); dir.normalize();
+  for(auto it=obs_.begin(), ite=obs_.end(); it!=ite; ++it){
+    //计算其他观测到这个3d点的KF 和这个3d的方向
+    Vector3d dir((*it)->frame->pos() - pos_); 
+    dir.normalize();
 	// 计算这两个方向的夹角
     double cos_angle = obs_dir.dot(dir);
 	// 选择夹角最小的一个
-    if(cos_angle > min_cos_angle)
-    {
+    if(cos_angle > min_cos_angle){
       min_cos_angle = cos_angle;
       min_it = it;
     }
