@@ -183,6 +183,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   SVO_LOG4(sfba_thresh, sfba_error_init, sfba_error_final, sfba_n_edges_final);
   SVO_DEBUG_STREAM("PoseOptimizer:\t ErrInit = "<<sfba_error_init<<"px\t thresh = "<<sfba_thresh);
   SVO_DEBUG_STREAM("PoseOptimizer:\t ErrFin. = "<<sfba_error_final<<"px\t nObsFin. = "<<sfba_n_edges_final);
+  
 // 2).重投影以后，利用多关键帧和当前帧的匹配点进行相机位姿优化的过程中，不断丢弃重投影误差大的点。
 // 优化完以后，如果inlier数目较少，跟踪失败，开启重定位。如果这次优化过程中的点比上一帧少很多，
 // 那也认为跟踪失败，开启重定位。 

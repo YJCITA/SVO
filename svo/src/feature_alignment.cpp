@@ -243,8 +243,6 @@ bool align2D(
 //        new_chi2 += res*res;
       }
     }
-
-
 /*
     if(iter > 0 && new_chi2 > chi2)
     {
@@ -269,8 +267,7 @@ bool align2D(
     //         << "\t new chi2 = " << new_chi2 << endl;
     #endif
 
-    if(update[0]*update[0]+update[1]*update[1] < min_update_squared)
-    {
+    if(update[0]*update[0]+update[1]*update[1] < min_update_squared){
     #if SUBPIX_VERBOSE
         cout << "converged." << endl;
     #endif

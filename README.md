@@ -1,4 +1,4 @@
-SVO
+fork from SVO
 ===
 
 This code implements a semi-direct monocular visual odometry pipeline.
