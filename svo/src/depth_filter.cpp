@@ -100,15 +100,14 @@ void DepthFilter::addKeyframe(FramePtr frame, double depth_mean, double depth_mi
 {
   new_keyframe_min_depth_ = depth_min;
   new_keyframe_mean_depth_ = depth_mean;
-  if(thread_ != NULL)
-  {
+  if(thread_ != NULL){
     new_keyframe_ = frame;
     new_keyframe_set_ = true;
     seeds_updating_halt_ = true;
     frame_queue_cond_.notify_one();
-  }
-  else
+  }else{
     initializeSeeds(frame);
+  }
 }
 
 void DepthFilter::initializeSeeds(FramePtr frame)
@@ -175,19 +174,17 @@ void DepthFilter::updateSeedsLoop()
       lock_t lock(frame_queue_mut_);
       while(frame_queue_.empty() && new_keyframe_set_ == false)
         frame_queue_cond_.wait(lock);
-      if(new_keyframe_set_)
-      {
+      if(new_keyframe_set_){
         new_keyframe_set_ = false;
         seeds_updating_halt_ = false;
         clearFrameQueue();
         frame = new_keyframe_;
-      }
-      else
-      {
+      }else{
         frame = frame_queue_.front();
         frame_queue_.pop();
       }
     }
+    
     updateSeeds(frame);
     if(frame->isKeyframe())
       initializeSeeds(frame);
@@ -206,8 +203,7 @@ void DepthFilter::updateSeeds(FramePtr frame)
   double px_noise = 1.0;
   double px_error_angle = atan(px_noise/(2.0*focal_length))*2.0; // law of chord (sehnensatz)
   // 更新当前KF中的种子点
-  while( it!=seeds_.end())
-  {
+  while( it!=seeds_.end()){
     // set this value true when seeds updating should be interrupted
     if(seeds_updating_halt_)
       return;

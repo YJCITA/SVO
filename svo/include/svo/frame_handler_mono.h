@@ -70,6 +70,8 @@ protected:
   initialization::KltHomographyInit klt_homography_init_; //!< Used to estimate pose of the first two keyframes by estimating a homography.
   DepthFilter* depth_filter_;                   //!< Depth estimation algorithm runs in a parallel thread and is used to initialize new 3D points.
 
+  int m_add_key_fram_counter;
+  
   /// Initialize the visual odometry algorithm.
   virtual void initialize();
 

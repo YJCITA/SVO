@@ -47,6 +47,8 @@ void FrameHandlerMono::initialize()
 		&MapPointCandidates::newCandidatePoint, &map_.point_candidates_, _1, _2);
   depth_filter_ = new DepthFilter(feature_detector, depth_filter_cb);
   depth_filter_->startThread();
+  
+  m_add_key_fram_counter = 0;
 }
 
 FrameHandlerMono::~FrameHandlerMono()
@@ -210,10 +212,13 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   frame_utils::getSceneDepth(*new_frame_, depth_mean, depth_min);
    // KF 的判断标准: 如果new_frame_ 跟与它相邻的所有KF之间的相对平移都超过了场景平均深度的12%
   printf("depth_mean: %.1f\n", depth_mean);
-  if(!needNewKf(depth_mean) || tracking_quality_ == TRACKING_BAD){
-    depth_filter_->addFrame(new_frame_);
-    return RESULT_NO_KEYFRAME;
+  if(++m_add_key_fram_counter < 5){
+    if(!needNewKf(depth_mean) || tracking_quality_ == TRACKING_BAD){
+        depth_filter_->addFrame(new_frame_);
+        return RESULT_NO_KEYFRAME;
+    }
   }
+  m_add_key_fram_counter = 0;
   // 设置KF
   new_frame_->setKeyframe();
   SVO_DEBUG_STREAM("New keyframe selected.");

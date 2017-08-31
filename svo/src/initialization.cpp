@@ -22,6 +22,7 @@
 #include <svo/feature_detection.h>
 #include <vikit/math_utils.h>
 #include <vikit/homography.h>
+#include <vikit/fundamental.h>
 
 namespace svo {
 namespace initialization {
@@ -53,15 +54,29 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
 
   // 对两帧光流跟踪之后像素差值的中值
   double disparity = vk::getMedian(disparities_);
-  SVO_INFO_STREAM("Init: KLT "<<disparity<<"px average disparity.");
+  SVO_INFO_STREAM("Init: KLT= "<<disparity<<"px average disparity.");
+  
   //  如果中值小于给定配置参数，则表明这一帧不是关键帧，也就是刚开始的时候两帧不能太近
   if(disparity < Config::initMinDisparity())
     return NO_KEYFRAME;
 
-  // computeHomography //  计算单应矩阵
-  computeHomography( f_ref_, f_cur_, frame_ref_->cam_->errorMultiplier2(), 
-					 Config::poseOptimThresh(), inliers_, xyz_in_cur_, T_cur_from_ref_);
-  SVO_INFO_STREAM("Init: Homography RANSAC "<<inliers_.size()<<" inliers.");
+  if(0){
+    // computeHomography  计算单应矩阵
+    computeHomography( f_ref_, f_cur_, frame_ref_->cam_->errorMultiplier2(), Config::poseOptimThresh(), 
+                        inliers_, xyz_in_cur_, T_cur_from_ref_ );
+    SVO_INFO_STREAM("Init: Homography RANSAC= "<<inliers_.size()<<" inliers.");
+  }
+  
+  if(1){
+    // -YJ-
+    vector<int> inliers;
+    vector<Vector3d> xyz_in_cur;  
+    SE3 T_cur_from_ref;
+    computeFundamental( frame_ref_->img_pyr_[0], frame_cur->img_pyr_[0], f_ref_, f_cur_, frame_ref_->cam_->errorMultiplier2(), Config::poseOptimThresh(),
+                        inliers_, xyz_in_cur_, T_cur_from_ref_);
+
+    SVO_INFO_STREAM("Init: fundamental RANSAC= "<<inliers_.size()<<" inliers.");
+  }
 
   if(inliers_.size() < Config::initMinInliers()){
     SVO_WARN_STREAM("Init WARNING: "<<Config::initMinInliers()<<" inliers minimum required.");
@@ -70,8 +85,9 @@ InitResult KltHomographyInit::addSecondFrame(FramePtr frame_cur)
 
   // Rescale the map such that the mean scene depth is equal to the specified scale
   vector<double> depth_vec;
-  for(size_t i=0; i<xyz_in_cur_.size(); ++i)
+  for(size_t i=0; i<xyz_in_cur_.size(); ++i){
     depth_vec.push_back((xyz_in_cur_[i]).z());
+  }
   double scene_depth_median = vk::getMedian(depth_vec);
   
   // 因为computeHomography 算出来的平移是带尺度的，要归一化到统一的尺度下
@@ -111,7 +127,7 @@ void KltHomographyInit::reset()
 }
 
 /// 检测fast角度，输出的是对应的点和点的方向向量（可以考虑为点的反投影坐标）
-void detectFeatures( FramePtr frame, vector<cv::Point2f>& px_vec, vector<Vector3d>& f_vec)
+void KltHomographyInit::detectFeatures( FramePtr frame, vector<cv::Point2f>& px_vec, vector<Vector3d>& f_vec)
 {
   Features new_features;
   //参数: const int img_width,const int img_height,const int cell_size,const int n_pyr_levels
@@ -131,14 +147,10 @@ void detectFeatures( FramePtr frame, vector<cv::Point2f>& px_vec, vector<Vector3
   });
 }
 
-void trackKlt(
-    FramePtr frame_ref,
-    FramePtr frame_cur,
-    vector<cv::Point2f>& px_ref,
-    vector<cv::Point2f>& px_cur,
-    vector<Vector3d>& f_ref,
-    vector<Vector3d>& f_cur,
-    vector<double>& disparities)
+void KltHomographyInit::trackKlt(  FramePtr frame_ref, FramePtr frame_cur,
+                vector<cv::Point2f>& px_ref, vector<cv::Point2f>& px_cur,
+                vector<Vector3d>& f_ref, vector<Vector3d>& f_cur,
+                vector<double>& disparities)
 {
   const double klt_win_size = 30.0;
   const int klt_max_iter = 30;
@@ -148,8 +160,7 @@ void trackKlt(
   vector<float> min_eig_vec;
   cv::TermCriteria termcrit(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, klt_max_iter, klt_eps);
   cv::calcOpticalFlowPyrLK(frame_ref->img_pyr_[0], frame_cur->img_pyr_[0],
-                           px_ref, px_cur,
-                           status, error,
+                           px_ref, px_cur, status, error,
                            cv::Size2i(klt_win_size, klt_win_size),
                            4, termcrit, cv::OPTFLOW_USE_INITIAL_FLOW);
 
@@ -158,6 +169,7 @@ void trackKlt(
   vector<Vector3d>::iterator f_ref_it = f_ref.begin();
   f_cur.clear(); f_cur.reserve(px_cur.size());
   disparities.clear(); disparities.reserve(px_cur.size());
+  
   for(size_t i=0; px_ref_it != px_ref.end(); ++i){
     if(!status[i]){
         //如果光流没有发现，则删除
@@ -176,9 +188,9 @@ void trackKlt(
 
 // ??? 这边给出一个提示，因为要保证16字节对齐，对于Vector2d之类的容器形式要写成 
 // std::vector<Vector2d, aligned_allocator<Vector2d>>
-void computeHomography( const vector<Vector3d>& f_ref,  const vector<Vector3d>& f_cur,
-		double focal_length, double reprojection_threshold, vector<int>& inliers,
-		vector<Vector3d>& xyz_in_cur,  SE3& T_cur_from_ref)
+void KltHomographyInit::computeHomography( const vector<Vector3d>& f_ref,  const vector<Vector3d>& f_cur,
+                        double focal_length, double reprojection_threshold, vector<int>& inliers,
+                        vector<Vector3d>& xyz_in_cur,  SE3& T_cur_from_ref)
 {
   vector<Vector2d > uv_ref(f_ref.size());
   vector<Vector2d > uv_cur(f_cur.size());
@@ -195,6 +207,34 @@ void computeHomography( const vector<Vector3d>& f_ref,  const vector<Vector3d>& 
                      reprojection_threshold, focal_length,
                      xyz_in_cur, inliers, outliers);
   T_cur_from_ref = Homography.T_c2_from_c1;
+}
+
+
+void KltHomographyInit::computeFundamental( 
+                        const cv::Mat img_ref, const cv::Mat img_cur, 
+                        const vector<Vector3d>& f_ref,  const vector<Vector3d>& f_cur,
+                        double focal_length, double reprojection_threshold, vector<int>& inliers,
+                        vector<Vector3d>& xyz_in_cur,  SE3& T_cur_from_ref)
+{
+  vector<Vector2d > uv_ref(f_ref.size());
+  vector<Vector2d > uv_cur(f_cur.size());
+  for(size_t i=0, i_max=f_ref.size(); i<i_max; ++i){
+    uv_ref[i] = vk::project2d(f_ref[i]); // uv_ref是深度归一化后的
+    uv_cur[i] = vk::project2d(f_cur[i]);
+  }
+//   Eigen::Matrix3d K = frame_ref_->cam_->K_;
+  vk::Fundamental Fundamental(img_ref, img_cur, uv_ref, uv_cur, focal_length, reprojection_threshold);
+  Fundamental.computeSE3fromMatches();
+  
+//   vk::Homography Homography(uv_ref, uv_cur, focal_length, reprojection_threshold);
+//   Homography.computeSE3fromMatches();
+  
+  vector<int> outliers;
+  vk::computeInliers(f_cur, f_ref,
+                     Fundamental.T_c2_from_c1.rotation_matrix(), Fundamental.T_c2_from_c1.translation(),
+                     reprojection_threshold, focal_length,
+                     xyz_in_cur, inliers, outliers);
+  T_cur_from_ref = Fundamental.T_c2_from_c1;
 }
 
 

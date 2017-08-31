@@ -18,6 +18,7 @@
 #define SVO_INITIALIZATION_H
 
 #include <svo/global.h>
+#include <Eigen/Eigen>
 
 namespace svo {
 
@@ -40,6 +41,40 @@ public:
   InitResult addFirstFrame(FramePtr frame_ref);
   InitResult addSecondFrame(FramePtr frame_ref);
   void reset();
+  
+    void detectFeatures(
+        FramePtr frame,
+        vector<cv::Point2f>& px_vec,
+        vector<Vector3d>& f_vec);
+
+    /// Compute optical flow (Lucas Kanade) for selected keypoints.
+    void trackKlt(
+        FramePtr frame_ref,
+        FramePtr frame_cur,
+        vector<cv::Point2f>& px_ref,
+        vector<cv::Point2f>& px_cur,
+        vector<Vector3d>& f_ref,
+        vector<Vector3d>& f_cur,
+        vector<double>& disparities);
+
+    void computeHomography(
+        const vector<Vector3d>& f_ref,
+        const vector<Vector3d>& f_cur,
+        double focal_length,
+        double reprojection_threshold,
+        vector<int>& inliers,
+        vector<Vector3d>& xyz_in_cur,
+        SE3& T_cur_from_ref);
+
+    void computeFundamental(
+        const cv::Mat img_ref, const cv::Mat img_cur, 
+        const vector<Vector3d>& f_ref, const vector<Vector3d>& f_cur,
+        double focal_length,
+        double reprojection_threshold,
+        vector<int>& inliers,
+        vector<Vector3d>& xyz_in_cur,
+        SE3& T_cur_from_ref);
+
 
 protected:
   vector<cv::Point2f> px_ref_;      //!< keypoints to be tracked in reference frame.
@@ -53,29 +88,38 @@ protected:
 };
 
 /// Detect Fast corners in the image.
-void detectFeatures(
-    FramePtr frame,
-    vector<cv::Point2f>& px_vec,
-    vector<Vector3d>& f_vec);
-
-/// Compute optical flow (Lucas Kanade) for selected keypoints.
-void trackKlt(
-    FramePtr frame_ref,
-    FramePtr frame_cur,
-    vector<cv::Point2f>& px_ref,
-    vector<cv::Point2f>& px_cur,
-    vector<Vector3d>& f_ref,
-    vector<Vector3d>& f_cur,
-    vector<double>& disparities);
-
-void computeHomography(
-    const vector<Vector3d>& f_ref,
-    const vector<Vector3d>& f_cur,
-    double focal_length,
-    double reprojection_threshold,
-    vector<int>& inliers,
-    vector<Vector3d>& xyz_in_cur,
-    SE3& T_cur_from_ref);
+// void detectFeatures(
+//     FramePtr frame,
+//     vector<cv::Point2f>& px_vec,
+//     vector<Vector3d>& f_vec);
+// 
+// /// Compute optical flow (Lucas Kanade) for selected keypoints.
+// void trackKlt(
+//     FramePtr frame_ref,
+//     FramePtr frame_cur,
+//     vector<cv::Point2f>& px_ref,
+//     vector<cv::Point2f>& px_cur,
+//     vector<Vector3d>& f_ref,
+//     vector<Vector3d>& f_cur,
+//     vector<double>& disparities);
+// 
+// void computeHomography(
+//     const vector<Vector3d>& f_ref,
+//     const vector<Vector3d>& f_cur,
+//     double focal_length,
+//     double reprojection_threshold,
+//     vector<int>& inliers,
+//     vector<Vector3d>& xyz_in_cur,
+//     SE3& T_cur_from_ref);
+// 
+// void computeFundamental(
+//     const vector<Vector3d>& f_ref,
+//     const vector<Vector3d>& f_cur,
+//     double focal_length,
+//     double reprojection_threshold,
+//     vector<int>& inliers,
+//     vector<Vector3d>& xyz_in_cur,
+//     SE3& T_cur_from_ref);
 
 } // namespace initialization
 } // namespace svo
