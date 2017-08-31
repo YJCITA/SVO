@@ -209,6 +209,7 @@ FrameHandlerBase::UpdateResult FrameHandlerMono::processFrame()
   double depth_mean, depth_min;
   frame_utils::getSceneDepth(*new_frame_, depth_mean, depth_min);
    // KF 的判断标准: 如果new_frame_ 跟与它相邻的所有KF之间的相对平移都超过了场景平均深度的12%
+  printf("depth_mean: %.1f\n", depth_mean);
   if(!needNewKf(depth_mean) || tracking_quality_ == TRACKING_BAD){
     depth_filter_->addFrame(new_frame_);
     return RESULT_NO_KEYFRAME;

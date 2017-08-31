@@ -183,17 +183,18 @@ bool getSceneDepth(const Frame& frame, double& depth_mean, double& depth_min)
   vector<double> depth_vec;
   depth_vec.reserve(frame.fts_.size());
   depth_min = std::numeric_limits<double>::max();
-  for(auto it=frame.fts_.begin(), ite=frame.fts_.end(); it!=ite; ++it)
-  {
-    if((*it)->point != NULL)
-    {
+  
+  printf("getSceneDepth: \n");
+  
+  for(auto it=frame.fts_.begin(), ite=frame.fts_.end(); it!=ite; ++it){
+    if((*it)->point != NULL){
       const double z = frame.w2f((*it)->point->pos_).z();
       depth_vec.push_back(z);
       depth_min = fmin(z, depth_min);
+      printf("  %.1f\n", z);
     }
   }
-  if(depth_vec.empty())
-  {
+  if(depth_vec.empty()){
     SVO_WARN_STREAM("Cannot set scene depth. Frame has no point-observations!");
     return false;
   }

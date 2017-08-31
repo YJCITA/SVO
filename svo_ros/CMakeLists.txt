@@ -14,6 +14,9 @@ ENDIF()
 SET(CMAKE_VERBOSE_MAKEFILE OFF)
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/CMakeModules/")
 
+# ------------- log 相关 ----------------
+ADD_DEFINITIONS(-DUSE_GLOG)
+
 # Set build flags. Set IS_ARM on odroid board as environment variable
 SET(CMAKE_CXX_FLAGS "-Wall -D_LINUX -D_REENTRANT -march=native -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unknown-pragmas")
 IF(DEFINED ENV{ARM_ARCHITECTURE})
@@ -85,5 +88,8 @@ TARGET_LINK_LIBRARIES(svo_visualizer ${LINK_LIBS})
 # Create Executables                      
 ADD_EXECUTABLE(vo src/vo_node.cpp)
 TARGET_LINK_LIBRARIES(vo svo_visualizer)
-ADD_EXECUTABLE(benchmark src/benchmark_node.cpp)
-TARGET_LINK_LIBRARIES(benchmark svo_visualizer)
+
+ADD_EXECUTABLE(vo_kitti src/vo_yj.cpp src/kitti_parser.cpp)
+TARGET_LINK_LIBRARIES(vo_kitti svo_visualizer)
+# ADD_EXECUTABLE(benchmark src/benchmark_node.cpp)
+# TARGET_LINK_LIBRARIES(benchmark svo_visualizer)

@@ -49,9 +49,9 @@ Config::Config() :
     subpix_n_iter(vk::getParam<int>("svo/subpix_n_iter", 10)),
     max_n_kfs(vk::getParam<int>("svo/max_n_kfs", 10)),
     img_imu_delay(vk::getParam<double>("svo/img_imu_delay", 0.0)),
-    max_fts(vk::getParam<int>("svo/max_fts", 200)), // 120
+    max_fts(vk::getParam<int>("svo/max_fts", 400)), // 120
     quality_min_fts(vk::getParam<int>("svo/quality_min_fts", 50)),
-    quality_max_drop_fts(vk::getParam<int>("svo/quality_max_drop_fts", 40))
+    quality_max_drop_fts(vk::getParam<int>("svo/quality_max_drop_fts", 100))
 #else
     trace_name("svo"),
     trace_dir("/tmp"),

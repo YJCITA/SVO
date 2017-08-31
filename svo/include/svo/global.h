@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <math.h>
+#include "common.h"
 
 #include <Eigen/Core>
 #include <opencv2/opencv.hpp>
