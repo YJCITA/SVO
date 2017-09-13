@@ -277,10 +277,9 @@ bool Matcher::findEpipolarMatchDirect(
   size_t n_steps = epi_length_/0.7; // one step per pixel
   Vector2d step = epi_dir_/n_steps;
 
-  if(n_steps > options_.max_epi_search_steps)
-  {
-    printf("WARNING: skip epipolar search: %zu evaluations, px_lenght=%f, d_min=%f, d_max=%f.\n",
-           n_steps, epi_length_, d_min, d_max);
+  if(n_steps > options_.max_epi_search_steps){
+// 	  VLOG(5)<<"-Matcher- "<<"skip epipolar search, n_steps = "<<n_steps<<", epi_length_ = "<<epi_length_;
+	  std::cout<<"-Matcher- "<<"skip epipolar search, n_steps = "<<n_steps<<", epi_length_ = "<<epi_length_<<std::endl;
     return false;
   }
 

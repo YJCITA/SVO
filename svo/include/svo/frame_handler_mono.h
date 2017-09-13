@@ -96,6 +96,9 @@ protected:
   virtual bool needNewKf(double scene_depth_mean);
 
   void setCoreKfs(size_t n_closest);
+  
+private:
+	int m_relocalize_failed_counter; 
 };
 
 } // namespace svo

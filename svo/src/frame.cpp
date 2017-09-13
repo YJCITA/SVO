@@ -47,22 +47,22 @@ Frame::~Frame()
 
 void Frame::initFrame(const cv::Mat& img)
 {
-  // check image
-  // 检测图像，保证图像大小与相机模型大小一致，以及图像为灰度图像
-  if(img.empty() || img.type() != CV_8UC1 || img.cols != cam_->width() || img.rows != cam_->height())
-    throw std::runtime_error("Frame: provided image has not the same size as the camera model or image is not grayscale");
+	// check image
+	// 检测图像，保证图像大小与相机模型大小一致，以及图像为灰度图像
+	if(img.empty() || img.type() != CV_8UC1 || img.cols != cam_->width() || img.rows != cam_->height())
+		throw std::runtime_error("Frame: provided image has not the same size as the camera model or image is not grayscale");
 
-  // Set keypoints to NULL
-  std::for_each(key_pts_.begin(), key_pts_.end(), [&](Feature* ftr){ ftr=NULL; });
+	// Set keypoints to NULL
+	std::for_each(key_pts_.begin(), key_pts_.end(), [&](Feature* ftr){ ftr=NULL; });
 
-  // Build Image Pyramid
-  frame_utils::createImgPyramid(img, max(Config::nPyrLevels(), Config::kltMaxLevel()+1), img_pyr_);
+	// Build Image Pyramid
+	frame_utils::createImgPyramid(img, max(Config::nPyrLevels(), Config::kltMaxLevel()+1), img_pyr_);
 }
 
 void Frame::setKeyframe()
 {
-  is_keyframe_ = true;
-  setKeyPoints();
+	is_keyframe_ = true;
+	setKeyPoints();
 }
 
 void Frame::addFeature(Feature* ftr)
@@ -74,68 +74,67 @@ void Frame::addFeature(Feature* ftr)
 // 近图像的4个边角，并且这5个特征都要有对应的3D点
 void Frame::setKeyPoints()
 {
-  // 如果特征指向的3d点为空，则设置该特征为NULL
-  for(size_t i = 0; i < 5; ++i)
-    if(key_pts_[i] != NULL)
-      if(key_pts_[i]->point == NULL)
-        key_pts_[i] = NULL;
-
-  std::for_each(fts_.begin(), fts_.end(), [&](Feature* ftr){ 
-      if(ftr->point != NULL) 
-          checkKeyPoints(ftr); });
+	// 如果特征指向的3d点为空，则设置该特征为NULL
+	for(size_t i = 0; i < 5; ++i){
+		if(key_pts_[i] != NULL && key_pts_[i]->point == NULL)
+			key_pts_[i] = NULL;
+	}
+	std::for_each(fts_.begin(), fts_.end(), [&](Feature* ftr){ 
+		if(ftr->point != NULL) 
+			checkKeyPoints(ftr); });
 }
 
 // 设置５个点（４个角，加中心）
 void Frame::checkKeyPoints(Feature* ftr)
 {
-  const int cu = cam_->width()/2;
-  const int cv = cam_->height()/2;
+	const int cu = cam_->width()/2;
+	const int cv = cam_->height()/2;
 
-  // center pixel
-  if(key_pts_[0] == NULL)
-    key_pts_[0] = ftr;
-  else if(std::max(std::fabs(ftr->px[0]-cu), std::fabs(ftr->px[1]-cv))
-        < std::max(std::fabs(key_pts_[0]->px[0]-cu), std::fabs(key_pts_[0]->px[1]-cv)))
-    key_pts_[0] = ftr;
+	// center pixel
+	if(key_pts_[0] == NULL)
+		key_pts_[0] = ftr;
+	else if(std::max(std::fabs(ftr->px[0]-cu), std::fabs(ftr->px[1]-cv))
+			< std::max(std::fabs(key_pts_[0]->px[0]-cu), std::fabs(key_pts_[0]->px[1]-cv)))
+		key_pts_[0] = ftr;
 
-  // right-down
-  if(ftr->px[0] >= cu && ftr->px[1] >= cv){
-    if(key_pts_[1] == NULL)
-      key_pts_[1] = ftr;
-    else if((ftr->px[0]-cu) * (ftr->px[1]-cv)
-          > (key_pts_[1]->px[0]-cu) * (key_pts_[1]->px[1]-cv))
-      key_pts_[1] = ftr;
-  }
-  
-  // right-up
-  if(ftr->px[0] >= cu && ftr->px[1] < cv){
-    if(key_pts_[2] == NULL)
-      key_pts_[2] = ftr;
-    else if((ftr->px[0]-cu) * (ftr->px[1]-cv)
-          > (key_pts_[2]->px[0]-cu) * (key_pts_[2]->px[1]-cv))
-      key_pts_[2] = ftr;
-  }
-  
-  // left-up
-//   if(ftr->px[0] < cv && ftr->px[1] < cv)  // -YJ- origin bug
-  if(ftr->px[0] < cu && ftr->px[1] < cv)
-  {
-    if(key_pts_[3] == NULL)
-      key_pts_[3] = ftr;
-    else if((ftr->px[0]-cu) * (ftr->px[1]-cv)
-          > (key_pts_[3]->px[0]-cu) * (key_pts_[3]->px[1]-cv))
-      key_pts_[3] = ftr;
-  }
-  
-  // left-up
-//   if(ftr->px[0] < cv && ftr->px[1] >= cv)// -YJ- origin bug
-  if(ftr->px[0] < cu && ftr->px[1] >= cv){
-    if(key_pts_[4] == NULL)
-      key_pts_[4] = ftr;
-    else if((ftr->px[0]-cu) * (ftr->px[1]-cv)
-          > (key_pts_[4]->px[0]-cu) * (key_pts_[4]->px[1]-cv))
-      key_pts_[4] = ftr;
-  }
+	// right-down
+	if(ftr->px[0] >= cu && ftr->px[1] >= cv){
+		if(key_pts_[1] == NULL)
+		key_pts_[1] = ftr;
+		else if((ftr->px[0]-cu) * (ftr->px[1]-cv)
+			> (key_pts_[1]->px[0]-cu) * (key_pts_[1]->px[1]-cv))
+		key_pts_[1] = ftr;
+	}
+	
+	// right-up
+	if(ftr->px[0] >= cu && ftr->px[1] < cv){
+		if(key_pts_[2] == NULL)
+		key_pts_[2] = ftr;
+		else if((ftr->px[0]-cu) * (ftr->px[1]-cv)
+			> (key_pts_[2]->px[0]-cu) * (key_pts_[2]->px[1]-cv))
+		key_pts_[2] = ftr;
+	}
+	
+	// left-up
+	//   if(ftr->px[0] < cv && ftr->px[1] < cv)  // -YJ- origin bug
+	if(ftr->px[0] < cu && ftr->px[1] < cv)
+	{
+		if(key_pts_[3] == NULL)
+		key_pts_[3] = ftr;
+		else if((ftr->px[0]-cu) * (ftr->px[1]-cv)
+			> (key_pts_[3]->px[0]-cu) * (key_pts_[3]->px[1]-cv))
+		key_pts_[3] = ftr;
+	}
+	
+	// left-up
+	//   if(ftr->px[0] < cv && ftr->px[1] >= cv)// -YJ- origin bug
+	if(ftr->px[0] < cu && ftr->px[1] >= cv){
+		if(key_pts_[4] == NULL)
+		key_pts_[4] = ftr;
+		else if((ftr->px[0]-cu) * (ftr->px[1]-cv)
+			> (key_pts_[4]->px[0]-cu) * (key_pts_[4]->px[1]-cv))
+		key_pts_[4] = ftr;
+	}
 }
 
 void Frame::removeKeyPoint(Feature* ftr)

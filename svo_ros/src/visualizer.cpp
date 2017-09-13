@@ -67,6 +67,7 @@ void Visualizer::publishMinimal(
     const FrameHandlerMono& slam,
     const double timestamp)
 {
+	
   ++trace_id_;
   std_msgs::Header header_msg;
   header_msg.frame_id = "/cam";
@@ -105,7 +106,6 @@ void Visualizer::publishMinimal(
     }
     return;
   }
-
   // Publish pyramid-image every nth-frame.
   if(img_pub_nth_ > 0 && trace_id_%img_pub_nth_ == 0 && pub_images_.getNumSubscribers() > 0)
   {
@@ -124,7 +124,7 @@ void Visualizer::publishMinimal(
                  cv::Point2f(it_cur->x/scale, it_cur->y/scale),
                  cv::Point2f(it_ref->x/scale, it_ref->y/scale), cv::Scalar(0,255,0), 2);
     }
-
+	
     if(img_pub_level_ == 0)
     {
       for(Features::iterator it=frame->fts_.begin(); it!=frame->fts_.end(); ++it)
@@ -149,8 +149,8 @@ void Visualizer::publishMinimal(
                       cv::Scalar(0,255,0), CV_FILLED);
     }else{ //point size 1x1
       for(Features::iterator it=frame->fts_.begin(); it!=frame->fts_.end(); ++it){
-	cv::Vec3b &p=  img_rgb.at<cv::Vec3b>((*it)->px[1]/scale, (*it)->px[0]/scale);
-	p[0]=0;p[1]=255;p[2]=0;
+		cv::Vec3b &p=  img_rgb.at<cv::Vec3b>((*it)->px[1]/scale, (*it)->px[0]/scale);
+		p[0]=0;p[1]=255;p[2]=0;
       }
     }
     cv_bridge::CvImage img_msg;
@@ -167,14 +167,14 @@ void Visualizer::publishMinimal(
     Matrix<double,6,6> Cov;
     if(publish_world_in_cam_frame_)
     {
+		printf("1\n");
       // publish world in cam frame
       SE3 T_cam_from_world(frame->T_f_w_* T_world_from_vision_);
       q = Quaterniond(T_cam_from_world.rotation_matrix());
       p = T_cam_from_world.translation();
       Cov = frame->Cov_;
-    }
-    else
-    {
+    }else{
+		printf("2\n");
       // publish cam in world frame
       SE3 T_world_from_cam(T_world_from_vision_*frame->T_f_w_.inverse());
       q = Quaterniond(T_world_from_cam.rotation_matrix()*T_world_from_vision_.rotation_matrix().transpose());
@@ -218,7 +218,7 @@ void Visualizer::visualizeMarkers(
         ros::Time::now(), trace_id_, 0, 0.006, Vector3d(0.,0.,0.5));
     if(frame->isKeyframe() || publish_map_every_frame_)
       publishMapRegion(core_kfs);
-    removeDeletedPts(map);
+//     removeDeletedPts(map);
   }
 }
 

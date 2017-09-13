@@ -100,7 +100,7 @@ void Map::deletePoint(Point* pt)
 
 void Map::addKeyframe(FramePtr new_keyframe)
 {
-  keyframes_.push_back(new_keyframe);
+	keyframes_.push_back(new_keyframe);
 }
 
 void Map::getCloseKeyframes(const FramePtr& frame, std::list< std::pair<FramePtr,double> >& close_kfs) const

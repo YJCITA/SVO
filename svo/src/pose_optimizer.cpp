@@ -25,6 +25,7 @@
 namespace svo {
 namespace pose_optimizer {
 
+// 调用的都是nlls_solver的函数
 void optimizeGaussNewton(
     const double reproj_thresh,
     const size_t n_iter,
@@ -102,8 +103,8 @@ void optimizeGaussNewton(
     // check if error increased
     if((iter > 0 && new_chi2 > chi2) || (bool) std::isnan((double)dT[0])){
       if(verbose)
-        std::cout << "it " << iter
-                  << "\t FAILURE \t new_chi2 = " << new_chi2 << std::endl;
+        VLOG(5)<<"-PoseOptimizer:- " << "it " << iter
+                  << " *FAILURE*  new_chi2 = " << new_chi2 << std::endl;
       frame->T_f_w_ = T_old; // roll-back
       break;
     }
@@ -114,9 +115,9 @@ void optimizeGaussNewton(
     frame->T_f_w_ = T_new;
     chi2 = new_chi2;
     if(verbose)
-      std::cout << "it " << iter
-                << "\t Success \t new_chi2 = " << new_chi2
-                << "\t norm(dT) = " << vk::norm_max(dT) << std::endl;
+      VLOG(5)<<"-PoseOptimizer:- " << "it " << iter
+                << " *Success*  new_chi2 = " << new_chi2
+                << " norm(dT) = " << vk::norm_max(dT) << std::endl;
 
     // stop when converged
     if(vk::norm_max(dT) <= EPS)
@@ -154,10 +155,10 @@ void optimizeGaussNewton(
 
   estimated_scale *= frame->cam_->errorMultiplier2();
   if(verbose)
-    std::cout << "n deleted obs = " << n_deleted_refs
-              << "\t scale = " << estimated_scale
-              << "\t error init = " << error_init
-              << "\t error end = " << error_final << std::endl;
+    VLOG(5)<<"-PoseOptimizer:- " << "n deleted obs = " << n_deleted_refs
+              << " scale = " << estimated_scale
+              << " error init = " << error_init
+              << " error end = " << error_final << std::endl;
   num_obs -= n_deleted_refs;
 }
 

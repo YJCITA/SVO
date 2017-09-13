@@ -28,48 +28,47 @@ namespace svo {
 
 // sparseImgAlign 继承nlls_slover.h的算法模块类
 SparseImgAlign::SparseImgAlign( int max_level, int min_level, int n_iter,
-								Method method, bool display, bool verbose) :
-        display_(display),
-        max_level_(max_level),
-        min_level_(min_level)
+		Method method, bool display, bool verbose) :
+        display_(display), max_level_(max_level), min_level_(min_level)
 {
-  n_iter_ = n_iter;
-  n_iter_init_ = n_iter_;
-  method_ = method;
-  verbose_ = verbose;
-  eps_ = 0.000001;
+	n_iter_ = n_iter;
+	n_iter_init_ = n_iter_;
+	method_ = method;
+	verbose_ = verbose;
+	eps_ = 0.000001;
 }
 
 size_t SparseImgAlign::run(FramePtr ref_frame, FramePtr cur_frame)
 {
-  reset();
+	reset();
 
-  if(ref_frame->fts_.empty()){
-    SVO_WARN_STREAM("SparseImgAlign: no features to track!");
-    return 0;
-  }
+	if(ref_frame->fts_.empty()){
+		VLOG(5)<<"SparsImgAlign--"<<"SparseImgAlign: no features to track!";
+		return 0;
+	}
 
-  ref_frame_ = ref_frame;
-  cur_frame_ = cur_frame;
-  ref_patch_cache_ = cv::Mat(ref_frame_->fts_.size(), patch_area_, CV_32F);
-  jacobian_cache_.resize(Eigen::NoChange, ref_patch_cache_.rows*patch_area_);
-  visible_fts_.resize(ref_patch_cache_.rows, false); // TODO: should it be reset at each level?
+	ref_frame_ = ref_frame;
+	cur_frame_ = cur_frame;
+	ref_patch_cache_ = cv::Mat(ref_frame_->fts_.size(), patch_area_, CV_32F);
+	jacobian_cache_.resize(Eigen::NoChange, ref_patch_cache_.rows*patch_area_);
+	visible_fts_.resize(ref_patch_cache_.rows, false); // TODO: should it be reset at each level?
 
-  SE3 T_cur_from_ref(cur_frame_->T_f_w_ * ref_frame_->T_f_w_.inverse());
-  for(level_=max_level_; level_>=min_level_; --level_){
-    mu_ = 0.1;
-    jacobian_cache_.setZero();
-    have_ref_patch_cache_ = false;
-    if(verbose_)
-      printf("\nPYRAMID LEVEL %i\n---------------\n", level_);
-	  // 调用vikit中的　nlls_solver_impl.hpp
-	  // 默认调用的是GaussNewton，其中会调用computeResiduals，里面会包含多层金字塔level_
-      optimize(T_cur_from_ref);
-  }
-  cur_frame_->T_f_w_ = T_cur_from_ref * ref_frame_->T_f_w_;
-  // 会统计用于直接法计算的残差的特征点个数 n_meas_/patch_area_， 
-  // n_meas_表示前一帧所有特征点块(feature patch)像素投影后在cur_frame中的像素个数
-  return n_meas_/patch_area_;
+	SE3 T_cur_from_ref(cur_frame_->T_f_w_ * ref_frame_->T_f_w_.inverse());
+	for(level_=max_level_; level_>=min_level_; --level_){
+		mu_ = 0.1;
+		jacobian_cache_.setZero();
+		have_ref_patch_cache_ = false;
+		if(verbose_)
+			VLOG(5)<<"SparsImgAlign-- "<<"PYRAMID LEVEL"<<level_<< "---------------";
+		
+		// 调用vikit中的　nlls_solver_impl.hpp
+		// 默认调用的是GaussNewton，其中会调用computeResiduals，里面会包含多层金字塔level_
+		optimize(T_cur_from_ref);
+	}
+	cur_frame_->T_f_w_ = T_cur_from_ref * ref_frame_->T_f_w_;
+	// 会统计用于直接法计算的残差的特征点个数 n_meas_/patch_area_， 
+	// n_meas_表示前一帧所有特征点块(feature patch)像素投影后在cur_frame中的像素个数
+	return n_meas_/patch_area_;
 }
 
 Matrix<double, 6, 6> SparseImgAlign::getFisherInformation()
@@ -247,29 +246,31 @@ double SparseImgAlign::computeResiduals( const SE3& T_cur_from_ref, bool lineari
 int SparseImgAlign::solve()
 {
 	//ldlt稀疏矩阵的Cholesky分解　　Hx = Jres_
-  x_ = H_.ldlt().solve(Jres_);
-  if((bool) std::isnan((double) x_[0]))
-    return 0;
-  return 1;
+	x_ = H_.ldlt().solve(Jres_);
+	if((bool) std::isnan((double) x_[0]))
+		return 0;
+	return 1;
 }
 
 // current ModelType is SE3
 void SparseImgAlign::update( const ModelType& T_curold_from_ref, ModelType& T_curnew_from_ref)
 {
     // 注意求雅克比矩阵的时候，对Rt无法求导数，改成李代数的形式，这边用SE3::exp
-  T_curnew_from_ref =  T_curold_from_ref * SE3::exp(-x_);
+	T_curnew_from_ref =  T_curold_from_ref * SE3::exp(-x_);
 }
 
 void SparseImgAlign::startIteration()
-{}
+{
+	
+}
 
 void SparseImgAlign::finishIteration()
 {
-  if(display_){
-    cv::namedWindow("residuals", CV_WINDOW_AUTOSIZE);
-    cv::imshow("residuals", resimg_*10);
-    cv::waitKey(0);
-  }
+	if(display_){
+		cv::namedWindow("residuals", CV_WINDOW_AUTOSIZE);
+		cv::imshow("residuals", resimg_*10);
+		cv::waitKey(0);
+	}
 }
 
 } // namespace svo

@@ -32,26 +32,26 @@ namespace svo {
 
 Reprojector::Reprojector(vk::AbstractCamera* cam, Map& map) : map_(map)
 {
-  initializeGrid(cam);
+	initializeGrid(cam);
 }
 
 Reprojector::~Reprojector()
 {
-  std::for_each(grid_.cells.begin(), grid_.cells.end(), [&](Cell* c){ delete c; });
+	std::for_each(grid_.cells.begin(), grid_.cells.end(), [&](Cell* c){ delete c; });
 }
 
 void Reprojector::initializeGrid(vk::AbstractCamera* cam)
 {
-  grid_.cell_size = Config::gridSize();
-  grid_.grid_n_cols = ceil(static_cast<double>(cam->width())/grid_.cell_size);
-  grid_.grid_n_rows = ceil(static_cast<double>(cam->height())/grid_.cell_size);
-  grid_.cells.resize(grid_.grid_n_cols*grid_.grid_n_rows);
-  std::for_each(grid_.cells.begin(), grid_.cells.end(), [&](Cell*& c){ c = new Cell; });
-  grid_.cell_order.resize(grid_.cells.size());
-  for(size_t i=0; i<grid_.cells.size(); ++i)
-    grid_.cell_order[i] = i;
-  // 随机排序，一种策略
-  random_shuffle(grid_.cell_order.begin(), grid_.cell_order.end()); // maybe we should do it at every iteration!
+	grid_.cell_size = Config::gridSize();
+	grid_.grid_n_cols = ceil(static_cast<double>(cam->width())/grid_.cell_size);
+	grid_.grid_n_rows = ceil(static_cast<double>(cam->height())/grid_.cell_size);
+	grid_.cells.resize(grid_.grid_n_cols*grid_.grid_n_rows);
+	std::for_each(grid_.cells.begin(), grid_.cells.end(), [&](Cell*& c){ c = new Cell; });
+	grid_.cell_order.resize(grid_.cells.size());
+	for(size_t i=0; i<grid_.cells.size(); ++i)
+		grid_.cell_order[i] = i;
+	// 随机排序，一种策略
+	random_shuffle(grid_.cell_order.begin(), grid_.cell_order.end()); // maybe we should do it at every iteration!
 }
 
 void Reprojector::resetGrid()
@@ -63,90 +63,90 @@ void Reprojector::resetGrid()
 
 void Reprojector::reprojectMap( FramePtr frame, std::vector< std::pair<FramePtr,std::size_t> >& overlap_kfs)
 {
-  resetGrid();
-  // Identify those Keyframes which share a common field of view.
-  SVO_START_TIMER("reproject_kfs");
-  list< pair<FramePtr,double> > close_kfs;
-  // 获取所有有视野重叠的KF
-  map_.getCloseKeyframes(frame, close_kfs);
+	resetGrid();
+	// Identify those Keyframes which share a common field of view.
+	SVO_START_TIMER("reproject_kfs");
+	list< pair<FramePtr,double> > close_kfs;
+	// 获取所有有视野重叠的KF
+	map_.getCloseKeyframes(frame, close_kfs);
 
-  // Sort KFs with overlap according to their closeness
-  // 对靠近的关键帧根据靠近程度进行排序
-  //sort pairs based on the second element of the pair, the smaller is in front
-  close_kfs.sort(boost::bind(&std::pair<FramePtr, double>::second, _1) <
-                 boost::bind(&std::pair<FramePtr, double>::second, _2));
+	// Sort KFs with overlap according to their closeness
+	// 对靠近的关键帧根据靠近程度进行排序
+	//sort pairs based on the second element of the pair, the smaller is in front
+	close_kfs.sort(boost::bind(&std::pair<FramePtr, double>::second, _1) <
+					boost::bind(&std::pair<FramePtr, double>::second, _2));
 
-  // Reproject all mappoints of the closest N kfs with overlap. We only store
-  // in which grid cell the points fall.
-  // 对有有重叠部分的N个关键帧对应的mappoints进行重投影，我们只存储格子中特征点减少的
-  //把这些三维点投影到new frame 的所在单元格记录下来。
-  //单元格会保存这个三维点的信息
-  size_t n = 0;
-  overlap_kfs.reserve(options_.max_n_kfs);
-  // 对最近的N个关键帧进行迭代，找到有重叠视野
-  for( auto it_frame=close_kfs.begin(), ite_frame=close_kfs.end();
-			it_frame!=ite_frame && n<options_.max_n_kfs; ++it_frame, ++n ){
-    FramePtr ref_frame = it_frame->first;
-    overlap_kfs.push_back(pair<FramePtr,size_t>(ref_frame,0));
+	// Reproject all mappoints of the closest N kfs with overlap. We only store
+	// in which grid cell the points fall.
+	// 对有有重叠部分的N个关键帧对应的mappoints进行重投影，我们只存储格子中特征点减少的
+	//把这些三维点投影到new frame 的所在单元格记录下来。
+	//单元格会保存这个三维点的信息
+	size_t n = 0;
+	overlap_kfs.reserve(options_.max_n_kfs);
+	// 对最近的N个关键帧进行迭代，找到有重叠视野
+	for( auto it_frame=close_kfs.begin(), ite_frame=close_kfs.end();
+				it_frame!=ite_frame && n<options_.max_n_kfs; ++it_frame, ++n ){
+		FramePtr ref_frame = it_frame->first;
+		overlap_kfs.push_back(pair<FramePtr,size_t>(ref_frame,0));
 
-    // 1. map reprojection
-    // Try to reproject each mappoint that the other KF observes
-	// 对这个参考帧观察到的点投影到当前帧中
-    for(auto it_ftr=ref_frame->fts_.begin(),ite_ftr=ref_frame->fts_.end();it_ftr!=ite_ftr; ++it_ftr){
-      // check if the feature has a mappoint assigned
-      if((*it_ftr)->point == NULL)
-        continue;
+		// 1. map reprojection
+		// Try to reproject each mappoint that the other KF observes
+		// 对这个参考帧观察到的点投影到当前帧中
+		for(auto it_ftr=ref_frame->fts_.begin(), ite_ftr=ref_frame->fts_.end(); it_ftr!=ite_ftr; ++it_ftr){
+			// check if the feature has a mappoint assigned
+			if((*it_ftr)->point == NULL)
+				continue;
 
-      // make sure we project a point only once
-	   // 同一帧中不同特征点可能对应地图上的同一个3D点,只投影一次
-      if((*it_ftr)->point->last_projected_kf_id_ == frame->id_)
-        continue;
-      (*it_ftr)->point->last_projected_kf_id_ = frame->id_;
-      
-	  // 将三维点投影到对应的cell
-      if( reprojectPoint(frame, (*it_ftr)->point) )
-        overlap_kfs.back().second++;
-    }
-  }
-  SVO_STOP_TIMER("reproject_kfs");
+			// make sure we project a point only once
+			// 同一帧中不同特征点可能对应地图上的同一个3D点,只投影一次
+			if((*it_ftr)->point->last_projected_kf_id_ == frame->id_)
+				continue;
+			(*it_ftr)->point->last_projected_kf_id_ = frame->id_;
+			
+			// 将三维点投影到对应的cell
+			if( reprojectPoint(frame, (*it_ftr)->point) )
+				overlap_kfs.back().second++;
+		}
+	}
+	SVO_STOP_TIMER("reproject_kfs");
 
-  // candidates 保存的是当前keyframe中已经收敛的点，但是还没来得及插入地图
-  // map 通过保存kf来保存3d点,kf中的特征点都记住了自己的3d point位置
-  SVO_START_TIMER("reproject_candidates");
-  {
-    boost::unique_lock<boost::mutex> lock(map_.point_candidates_.mut_);
-    auto it=map_.point_candidates_.candidates_.begin();
-    while(it!=map_.point_candidates_.candidates_.end()){
-      if(!reprojectPoint(frame, it->first)){
-        it->first->n_failed_reproj_ += 3; // -YJ- why is 3??
-        if(it->first->n_failed_reproj_ > 30){ // -YJ- why is 30?
-          map_.point_candidates_.deleteCandidate(*it);
-          it = map_.point_candidates_.candidates_.erase(it);
-          continue;
-        }
-      }
-      ++it;
-    }
-  } // unlock the mutex when out of scope
-  SVO_STOP_TIMER("reproject_candidates");
+	// candidates 保存的是当前keyframe中已经收敛的点，但是还没来得及插入地图
+	// map 通过保存kf来保存3d点,kf中的特征点都记住了自己的3d point位置
+	SVO_START_TIMER("reproject_candidates");
+	{
+		boost::unique_lock<boost::mutex> lock(map_.point_candidates_.mut_);
+		auto it=map_.point_candidates_.candidates_.begin();
+		while(it!=map_.point_candidates_.candidates_.end()){
+		if(!reprojectPoint(frame, it->first)){
+			it->first->n_failed_reproj_ += 3; // -YJ- why is 3??
+			if(it->first->n_failed_reproj_ > 30){ // -YJ- why is 30?
+				map_.point_candidates_.deleteCandidate(*it);
+				it = map_.point_candidates_.candidates_.erase(it);
+				continue;
+			}
+		}
+		++it;
+		}
+	} // unlock the mutex when out of scope
+	SVO_STOP_TIMER("reproject_candidates");
 
-  // 2. feature align
-  // Now we go through each grid cell and select one point to match.
-  // At the end, we should have at maximum one reprojected point per cell.
-  // 遍历所有的单元格，注意现在每个单元格中可能存在多个投影点
-  SVO_START_TIMER("feature_align");
-  for(size_t i=0; i<grid_.cells.size(); ++i){
-    // we prefer good quality points over unkown quality (more likely to match)
-    // and unknown quality over candidates (position not optimized)
-	// 这里作者为了速度考虑，不是对图像上的所有cell都挑选，随机挑选了maxFts这么多个cell
-	// 程序中grid_.cell_order[i]是用随机函数打乱了cell的排序.
-    // 对同一单元格中的多个投影点选择一个进行alignment
-    if(reprojectCell(*grid_.cells.at(grid_.cell_order[i]), frame))
-      ++n_matches_;
-    if(n_matches_ > (size_t) Config::maxFts())
-      break;
-  }
-  SVO_STOP_TIMER("feature_align");
+	// 2. feature align
+	// Now we go through each grid cell and select one point to match.
+	// At the end, we should have at maximum one reprojected point per cell.
+	// 遍历所有的单元格，注意现在每个单元格中可能存在多个投影点
+	SVO_START_TIMER("feature_align");
+	for(size_t i=0; i<grid_.cells.size(); ++i){
+		// we prefer good quality points over unkown quality (more likely to match)
+		// and unknown quality over candidates (position not optimized)
+		// 这里作者为了速度考虑，不是对图像上的所有cell都挑选，随机挑选了maxFts这么多个cell
+		// 程序中grid_.cell_order[i]是用随机函数打乱了cell的排序.
+		// 对同一单元格中的多个投影点选择一个进行alignment
+		if(reprojectCell(*grid_.cells.at(grid_.cell_order[i]), frame))
+			++n_matches_;
+		if(n_matches_ > (size_t) Config::maxFts())
+			break;
+	}
+	SVO_STOP_TIMER("feature_align");
 }
 
 bool Reprojector::pointQualityComparator(Candidate& lhs, Candidate& rhs)

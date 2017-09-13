@@ -30,12 +30,12 @@ Config::Config() :
     core_n_kfs(vk::getParam<int>("svo/core_n_kfs", 3)),
     map_scale(vk::getParam<double>("svo/map_scale", 1.0)),
     grid_size(vk::getParam<int>("svo/grid_size", 30)),
-    init_min_disparity(vk::getParam<double>("svo/init_min_disparity", 50.0)),
+    init_min_disparity(vk::getParam<double>("svo/init_min_disparity", 35.0)), // 50
     init_min_tracked(vk::getParam<int>("svo/init_min_tracked", 50)),
     init_min_inliers(vk::getParam<int>("svo/init_min_inliers", 40)),
     klt_max_level(vk::getParam<int>("svo/klt_max_level", 4)),
     klt_min_level(vk::getParam<int>("svo/klt_min_level", 2)),
-    reproj_thresh(vk::getParam<double>("svo/reproj_thresh", 2.0)),
+    reproj_thresh(vk::getParam<double>("svo/reproj_thresh", 5.0)),  // 2.0
     poseoptim_thresh(vk::getParam<double>("svo/poseoptim_thresh", 2.0)),
     poseoptim_num_iter(vk::getParam<int>("svo/poseoptim_num_iter", 10)),
     structureoptim_max_pts(vk::getParam<int>("svo/structureoptim_max_pts", 20)),
@@ -50,7 +50,7 @@ Config::Config() :
     max_n_kfs(vk::getParam<int>("svo/max_n_kfs", 10)),
     img_imu_delay(vk::getParam<double>("svo/img_imu_delay", 0.0)),
     max_fts(vk::getParam<int>("svo/max_fts", 400)), // 120
-    quality_min_fts(vk::getParam<int>("svo/quality_min_fts", 50)),
+    quality_min_fts(vk::getParam<int>("svo/quality_min_fts", 30)),
     quality_max_drop_fts(vk::getParam<int>("svo/quality_max_drop_fts", 100))
 #else
     trace_name("svo"),

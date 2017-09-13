@@ -158,8 +158,8 @@ void Point::optimize(const size_t n_iter)
     if((i > 0 && new_chi2 > chi2) || (bool) std::isnan((double)dp[0]))
     {
 #ifdef POINT_OPTIMIZER_DEBUG
-      cout << "it " << i
-           << "\t FAILURE \t new_chi2 = " << new_chi2 << endl;
+      VLOG(5)<<"-point- " << "it " << i
+           << " FAILURE  new_chi2 = " << new_chi2 << endl;
 #endif
       pos_ = old_point; // roll-back
       break;
@@ -171,9 +171,9 @@ void Point::optimize(const size_t n_iter)
     pos_ = new_point;
     chi2 = new_chi2;
 #ifdef POINT_OPTIMIZER_DEBUG
-    cout << "it " << i
-         << "\t Success \t new_chi2 = " << new_chi2
-         << "\t norm(b) = " << vk::norm_max(b)
+    VLOG(5)<<"-point- " << "it " << i
+         << " Success  new_chi2 = " << new_chi2
+         << " norm(b) = " << vk::norm_max(b)
          << endl;
 #endif
 

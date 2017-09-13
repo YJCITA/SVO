@@ -72,7 +72,9 @@ FrameHandlerBase::FrameHandlerBase() :
   g_permon->addLog("dropout");
   g_permon->init(Config::traceName(), Config::traceDir());
 #endif
-
+	
+  is_first_run_judge_ = true;
+  
   SVO_INFO_STREAM("SVO initialized");
 }
 
@@ -86,8 +88,7 @@ FrameHandlerBase::~FrameHandlerBase()
 
 bool FrameHandlerBase::startFrameProcessingCommon(const double timestamp)
 {
-  if(set_start_)
-  {
+  if(set_start_){
     resetAll();
     stage_ = STAGE_FIRST_FRAME;
   }
@@ -96,7 +97,6 @@ bool FrameHandlerBase::startFrameProcessingCommon(const double timestamp)
     return false;
 
   SVO_LOG(timestamp);
-  SVO_DEBUG_STREAM("New Frame");
   SVO_START_TIMER("tot_time");
   timer_.start();
 
@@ -105,10 +105,9 @@ bool FrameHandlerBase::startFrameProcessingCommon(const double timestamp)
   return true;
 }
 
-int FrameHandlerBase::finishFrameProcessingCommon( const size_t update_id,
-						const UpdateResult dropout, const size_t num_observations)
+int FrameHandlerBase::finishFrameProcessingCommon( const size_t update_id, const UpdateResult dropout, const size_t num_observations)
 {
-  SVO_DEBUG_STREAM("Frame: "<<update_id<<"\t fps-avg = "<< 1.0/acc_frame_timings_.getMean()<<"\t nObs = "<<acc_num_obs_.getMean());
+//   VLOG(5)<<"Frame: "<<update_id<<" fps-avg = "<< 1.0/acc_frame_timings_.getMean()<<" nObs = "<<acc_num_obs_.getMean();
   SVO_LOG(dropout);
 
   // save processing time to calculate fps
@@ -142,29 +141,34 @@ int FrameHandlerBase::finishFrameProcessingCommon( const size_t update_id,
 
 void FrameHandlerBase::resetCommon()
 {
-  map_.reset();
-  stage_ = STAGE_PAUSED;
-  set_reset_ = false;
-  set_start_ = false;
-  tracking_quality_ = TRACKING_INSUFFICIENT;
-  num_obs_last_ = 0;
-  SVO_INFO_STREAM("RESET");
+	map_.reset();
+	stage_ = STAGE_PAUSED;
+	set_reset_ = false;
+	set_start_ = false;
+	tracking_quality_ = TRACKING_INSUFFICIENT;
+	num_obs_last_ = 0;
+	SVO_INFO_STREAM("RESET");
 }
 
 void FrameHandlerBase::setTrackingQuality(const size_t num_observations)
 {
-  tracking_quality_ = TRACKING_GOOD;
-  if(num_observations < Config::qualityMinFts())
-  {
-    SVO_WARN_STREAM_THROTTLE(0.5, "Tracking less than "<< Config::qualityMinFts() <<" features!");
-    tracking_quality_ = TRACKING_INSUFFICIENT;
-  }
-  const int feature_drop = static_cast<int>(std::min(num_obs_last_, Config::maxFts())) - num_observations;
-  if(feature_drop > Config::qualityMaxFtsDrop())
-  {
-    SVO_WARN_STREAM("Lost "<< feature_drop <<" features!");
-    tracking_quality_ = TRACKING_INSUFFICIENT;
-  }
+	if(is_first_run_judge_){
+		num_observations_pre_ = num_observations;
+		is_first_run_judge_ = false;
+	}
+	tracking_quality_ = TRACKING_GOOD;
+	if(num_observations < Config::qualityMinFts()){
+		VLOG(5)<<"Tracking less than "<< Config::qualityMinFts() <<" features!";
+		tracking_quality_ = TRACKING_INSUFFICIENT;
+	}
+	printf("test %d !!!\n",Config::gridSize());
+// 	const int feature_drop = static_cast<int>(std::min(num_obs_last_, Config::maxFts())) - num_observations;
+	const int feature_drop = static_cast<int>(num_observations_pre_) - num_observations;
+	if(feature_drop > Config::qualityMaxFtsDrop()){
+		VLOG(5)<<"num_obs_pre = "<<num_observations_pre_<<", num_obs_cur = "<<num_observations<<", Lost = "<< feature_drop <<" !";
+		tracking_quality_ = TRACKING_INSUFFICIENT;
+	}
+	num_observations_pre_ = num_observations;
 }
 
 bool ptLastOptimComparator(Point* lhs, Point* rhs)
